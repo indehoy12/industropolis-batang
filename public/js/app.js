@@ -101,6 +101,8 @@ function startSkeleton() {
 // ---------- Tampilan: Beranda ----------
 function groupsOf(standings) { return Object.keys(standings).sort(); }
 
+// Penanda seri penuh (r.tied) tetap ada di HTML tetapi transparan, jadi tidak terlihat oleh penonton.
+const tieMark = (r) => (r.tied ? ' <span class="tie" aria-hidden="true">*</span>' : "");
 function standingsTable(rows, qualify) {
   if (!rows.length) return `<p class="empty">Belum ada tim di grup ini.</p>`;
   return `<table class="std"><thead><tr>
@@ -108,11 +110,11 @@ function standingsTable(rows, qualify) {
   </tr></thead><tbody>${rows
     .map(
       (r, i) => `<tr class="${i < qualify && r.p > 0 ? "q" : ""}">
-      <td class="rank">${i + 1}</td><td class="tm">${state.teamById[r.teamId]?.logoUrl ? `<span class="tmrow">${badge(state.teamById[r.teamId], true)}${esc(r.name)}${r.tied ? " *" : ""}</span>` : esc(r.name) + (r.tied ? " *" : "")}</td><td>${r.p}</td>
+      <td class="rank">${i + 1}</td><td class="tm">${state.teamById[r.teamId]?.logoUrl ? `<span class="tmrow">${badge(state.teamById[r.teamId], true)}${esc(r.name)}${tieMark(r)}</span>` : esc(r.name) + tieMark(r)}</td><td>${r.p}</td>
       <td class="opt">${r.w}</td><td class="opt">${r.d}</td><td class="opt">${r.l}</td>
       <td>${r.gf}</td><td class="opt">${r.ga}</td><td>${r.gf - r.ga > 0 ? "+" : ""}${r.gf - r.ga}</td><td class="pts">${r.pts}</td></tr>`
     )
-    .join("")}</tbody></table>${rows.some((r) => r.tied && r.p > 0) ? `<p class="note">* Seri penuh. Menunggu adu penalti dari panitia.</p>` : ""}`;
+    .join("")}</tbody></table>`;
 }
 const standingNote = () =>
   `<p class="note">Garis oranye: posisi yang lolos ke perempat final (2 teratas tiap grup). Urutan: poin, gol memasukkan (GM), head to head, selisih gol (SG), lalu kartu (kuning 1, merah 3; lebih sedikit lebih tinggi). Jika masih sama, ditentukan adu penalti oleh panitia.</p>`;

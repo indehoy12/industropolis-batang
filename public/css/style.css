@@ -214,6 +214,7 @@ table.std td.rank { width: 34px; position: relative; padding-left: 14px; text-al
 table.std tr.q td.rank::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--orange); }
 table.std td.tm { font-weight: 600; overflow-wrap: anywhere; }
 table.std td.pts { font-family: var(--font-d); font-weight: 700; font-size: 20px; }
+table.std .tie { color: transparent; user-select: none; }
 table.std .opt { display: none; }
 @media (min-width: 480px) { table.std .opt { display: table-cell; } }
 .groups-grid { display: grid; gap: 14px; }
