@@ -8,6 +8,7 @@
 //   Peran   Pemain | Kiper | Official          (kosong = Pemain)
 //   No      nomor punggung 0-99               (wajib untuk Pemain dan Kiper)
 //   Nama    nama pemain / official             (wajib)
+//   Kapten  Ya | C | 1 | x di baris kaptennya  (opsional, maksimal 1 per tim)
 // Kolom lain (mis. NIK, telepon) diabaikan dan TIDAK disimpan, karena data website bersifat publik.
 
 export const LIMITS = { players: 10, officials: 2 };
@@ -21,6 +22,7 @@ const HEADERS = {
   role: ["peran", "role", "posisi", "jabatan"],
   number: ["no", "nomor", "nopunggung", "nomorpunggung", "nomerpunggung", "number", "nopung"],
   name: ["nama", "namapemain", "namalengkap", "name", "pemain"],
+  captain: ["kapten", "captain", "cap", "c"],
 };
 
 // ---------- CSV ----------
@@ -144,6 +146,7 @@ function mapHeader(row) {
   });
   return idx;
 }
+const isYes = (v) => /^(ya|y|yes|c|cap|kapten|captain|1|x|true|v)$/.test(norm(v));
 const roleOf = (v) => {
   const k = norm(v);
   if (/ofisial|official|manager|manajer|pelatih|coach|ofc/.test(k)) return "official";
@@ -192,7 +195,7 @@ export function buildPlan(rows, existingTeams = [], existingPlayers = []) {
     const n = Number(raw);
     if (raw === "") errors.push(`Baris ${line}: ${name} (${t.name}) belum punya no punggung.`);
     else if (!Number.isInteger(n) || n < 0 || n > 99) errors.push(`Baris ${line}: no punggung "${raw}" tidak valid untuk ${name} (harus angka 0–99).`);
-    t.players.push({ name, number: raw !== "" && Number.isInteger(n) ? n : null, isGK: role === "gk", line });
+    t.players.push({ name, number: raw !== "" && Number.isInteger(n) ? n : null, isGK: role === "gk", isCaptain: isYes(get(r, "captain")), line });
   });
 
   for (const t of byKey.values()) {
@@ -206,6 +209,9 @@ export function buildPlan(rows, existingTeams = [], existingPlayers = []) {
     for (const p of t.players) { const k = p.name.toLowerCase(); if (names.has(k)) warnings.push(`Tim ${t.name}: nama "${p.name}" muncul lebih dari sekali.`); names.add(k); }
     if (t.players.length > LIMITS.players) warnings.push(`Tim ${t.name}: ${t.players.length} pemain (ketentuan maksimal ${LIMITS.players}).`);
     if (t.officials.length > LIMITS.officials) warnings.push(`Tim ${t.name}: ${t.officials.length} official (ketentuan maksimal ${LIMITS.officials}).`);
+    const caps = t.players.filter((p) => p.isCaptain);
+    if (caps.length > 1) errors.push(`Tim ${t.name}: kapten lebih dari satu (${caps.map((p) => p.name).join(", ")}). Pilih satu saja.`);
+    if (col.captain !== undefined && !caps.length) warnings.push(`Tim ${t.name}: belum ada kapten.`);
     if (!t.players.some((p) => p.isGK)) warnings.push(`Tim ${t.name}: belum ada kiper (Peran = Kiper).`);
     if (t.existing) {
       t.currentPlayers = existingPlayers.filter((p) => p.teamId === t.existing.id).length;
@@ -215,7 +221,7 @@ export function buildPlan(rows, existingTeams = [], existingPlayers = []) {
   const newCount = teams.filter((t) => !t.existing).length;
   if (existingTeams.length + newCount > 16) warnings.push(`Total tim akan menjadi ${existingTeams.length + newCount} (kuota liga 16 tim).`);
   return {
-    teams, errors, warnings,
+    teams, errors, warnings, hasCaptainCol: col.captain !== undefined,
     totals: { teams: teams.length, players: teams.reduce((a, t) => a + t.players.length, 0), officials: teams.reduce((a, t) => a + t.officials.length, 0) },
   };
 }
@@ -239,14 +245,18 @@ export function buildOps(plan, { existingPlayers = [], matches = [], replace = f
     for (const p of t.players) {
       const ex = current.find((c) => c.role !== "official" && c.number === p.number);
       const data = { teamId, name: p.name, number: p.number, isGK: p.isGK, role: "player" };
+      if (plan.hasCaptainCol) data.isCaptain = !!p.isCaptain; // tanpa kolom Kapten, status kapten yang ada tidak diubah
       if (ex) { keep.add(ex.id); ops.push({ op: "update", col: "players", id: ex.id, data }); }
       else ops.push({ op: "set", col: "players", id: newId("players"), data });
     }
     for (const o of t.officials) {
       const ex = current.find((c) => c.role === "official" && clean(c.name).toLowerCase() === o.name.toLowerCase());
-      const data = { teamId, name: o.name, number: null, isGK: false, role: "official" };
+      const data = { teamId, name: o.name, number: null, isGK: false, isCaptain: false, role: "official" };
       if (ex) { keep.add(ex.id); ops.push({ op: "update", col: "players", id: ex.id, data }); }
       else ops.push({ op: "set", col: "players", id: newId("players"), data });
+    }
+    if (plan.hasCaptainCol && t.players.some((p) => p.isCaptain)) {
+      current.filter((c) => c.isCaptain && !keep.has(c.id)).forEach((c) => ops.push({ op: "update", col: "players", id: c.id, data: { isCaptain: false } }));
     }
     if (replace) current.filter((c) => !keep.has(c.id)).forEach((c) => { ops.push({ op: "delete", col: "players", id: c.id }); removed.add(c.id); });
   }

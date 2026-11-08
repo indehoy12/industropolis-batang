@@ -176,8 +176,9 @@ function playerBox(p, others) {
     title: "Ubah pemain", ok: "Simpan",
     fields: `<div class="grid3" style="align-items:end"><div><label for="mp-no">No.</label><input id="mp-no" type="number" name="number" min="0" max="99" value="${p.number ?? ""}"></div>
       <div style="grid-column:span 2"><label for="mp-nm">Nama pemain</label><input id="mp-nm" type="text" name="name" value="${esc(p.name)}" maxlength="60" autocomplete="off"></div></div>
-      <label class="check"><input type="checkbox" name="gk" ${p.isGK ? "checked" : ""}> Kiper (GK)</label>`,
-    read: (r) => ({ number: r.querySelector('[name="number"]').value.trim(), name: r.querySelector('[name="name"]').value.trim(), isGK: r.querySelector('[name="gk"]').checked }),
+      <label class="check"><input type="checkbox" name="gk" ${p.isGK ? "checked" : ""}> Kiper (GK)</label>
+      <label class="check"><input type="checkbox" name="cap" ${p.isCaptain ? "checked" : ""}> Kapten (C)</label>`,
+    read: (r) => ({ number: r.querySelector('[name="number"]').value.trim(), name: r.querySelector('[name="name"]').value.trim(), isGK: r.querySelector('[name="gk"]').checked, isCaptain: r.querySelector('[name="cap"]').checked }),
     validate: (v) => {
       if (!v.name) return "Nama tidak boleh kosong.";
       if (v.number !== "" && (!/^\d{1,2}$/.test(v.number))) return "Nomor punggung harus angka 0–99.";
@@ -373,7 +374,7 @@ function lineupEditor(m) {
       <div class="tiles">${list.map((p) => {
         const v = d[side][p.id] || "";
         return `<button type="button" class="tile ${v === "S" ? "is-s" : v === "B" ? "is-b" : ""}" data-act="lu-toggle" data-id="${esc(p.id)}" data-side="${side}" aria-pressed="${v ? "true" : "false"}">
-          <span class="no">${p.number ?? "–"}</span><span class="nm">${esc(p.name)}</span><span class="st">${p.isGK ? "GK · " : ""}${v === "S" ? "Inti" : v === "B" ? "Cadangan" : "Ketuk untuk pilih"}</span></button>`;
+          <span class="no">${p.number ?? "–"}</span><span class="nm">${esc(p.name)}${p.isCaptain ? ' <span class="badge-cap">C</span>' : ""}</span><span class="st">${p.isGK ? "GK · " : ""}${v === "S" ? "Inti" : v === "B" ? "Cadangan" : "Ketuk untuk pilih"}</span></button>`;
       }).join("") || `<p class="hint">Belum ada pemain di tim ini.</p>`}</div></div>`;
   };
   const probs = draftProblems(m, d);
@@ -399,7 +400,7 @@ function playerTile(m, side, p) {
   const starter = (m["lineup" + side]?.starters || []).includes(p.id);
   const marks = `${g ? `<i class="mk g">${ballSvg()}${g > 1 ? `<b>${g}</b>` : ""}${pen ? '<b class="evtag">P</b>' : ""}</i>` : ""}${og ? `<i class="mk og">${ballSvg("og")}<b class="evtag og">OG</b></i>` : ""}${yc ? `<i class="mk y"></i>` : ""}${rc ? `<i class="mk r"></i>` : ""}`;
   return `<button type="button" class="ptile ${starter ? "" : "bench"} ${rc ? "out" : ""}" data-act="pick" data-side="${side}" data-id="${esc(p.id)}">
-    <span class="no">${p.number ?? "–"}</span><span class="nm">${esc(p.name)}</span><span class="tg">${p.isGK ? "GK" : starter ? "" : "Cad."}</span><span class="marks">${marks}</span></button>`;
+    <span class="no">${p.number ?? "–"}</span><span class="nm">${esc(p.name)}${p.isCaptain ? ' <span class="badge-cap">C</span>' : ""}</span><span class="tg">${p.isGK ? "GK" : starter ? "" : "Cad."}</span><span class="marks">${marks}</span></button>`;
 }
 
 function sheetView(m) {
@@ -558,7 +559,7 @@ function importBody() {
     const p = st.plan;
     const list = (arr, cls) => arr.length ? `<ul class="imp-list ${cls}">${arr.slice(0, 25).map((x) => `<li>${esc(x)}</li>`).join("")}${arr.length > 25 ? `<li>…dan ${arr.length - 25} lainnya</li>` : ""}</ul>` : "";
     const rows = p.teams.map((t) => `<details class="imp-team"><summary><span class="nm">${esc(t.name)}</span><span class="chip">${t.existing ? "Diperbarui" : "Baru"}</span><span class="chip">Grup ${esc(t.group || t.existing?.group || "–")}</span><span class="cnt">${t.players.length} pemain · ${t.officials.length} official</span></summary>
-      <div class="imp-body">${[...t.players].sort((a, b) => (a.number ?? 999) - (b.number ?? 999)).map((x) => `<div class="imp-pl"><b>${x.number ?? "?"}</b><span>${esc(x.name)}</span>${x.isGK ? '<span class="badge-gk">GK</span>' : ""}</div>`).join("")}
+      <div class="imp-body">${[...t.players].sort((a, b) => (a.number ?? 999) - (b.number ?? 999)).map((x) => `<div class="imp-pl"><b>${x.number ?? "?"}</b><span>${esc(x.name)}</span>${x.isCaptain ? '<span class="badge-cap">C</span>' : ""}${x.isGK ? '<span class="badge-gk">GK</span>' : ""}</div>`).join("")}
       ${t.officials.map((x) => `<div class="imp-pl"><b>–</b><span>${esc(x.name)}</span><span class="chip">Official</span></div>`).join("")}</div></details>`).join("");
     preview = `<div class="imp-sum"><b>${esc(st.fileName)}</b>: ${p.totals.teams} tim, ${p.totals.players} pemain, ${p.totals.officials} official</div>
       ${p.errors.length ? `<div class="imp-box err"><b>${p.errors.length} masalah harus diperbaiki di file, lalu pilih ulang file:</b>${list(p.errors, "e")}</div>` : ""}
@@ -578,7 +579,7 @@ function importBody() {
 }
 
 // --- Tim & pemain ---
-const playerRow = (p) => `<div class="player-line"><b>${p.number ?? ""}</b><span>${esc(p.name)} ${p.isGK ? '<span class="badge-gk">GK</span>' : ""}</span>
+const playerRow = (p) => `<div class="player-line"><b>${p.number ?? ""}</b><span>${esc(p.name)} ${p.isCaptain ? '<span class="badge-cap" title="Kapten">C</span>' : ""}${p.isGK ? '<span class="badge-gk">GK</span>' : ""}</span>
   <button class="btn sm ghost mini" data-act="edit-player" data-id="${esc(p.id)}">Ubah</button><button class="btn sm danger mini" data-act="del-player" data-id="${esc(p.id)}">Hapus</button></div>`;
 
 // Daftar tim: kotak per grup, sama seperti halaman "Tim peserta" di website. Ketuk tim untuk membuka dan mengubahnya.
@@ -615,9 +616,10 @@ function teamView(id) {
       <form data-form="player" data-id="${esc(t.id)}" class="addform"><h3 class="a">Tambah pemain</h3><div class="grid3" style="align-items:end"><div><label>No.</label><input type="number" name="number" min="0" max="99"></div>
         <div style="grid-column:span 2"><label>Nama pemain</label><input type="text" name="name" required></div></div>
         <label class="check"><input type="checkbox" name="gk"> Kiper (GK)</label>
+        <label class="check"><input type="checkbox" name="cap"> Kapten (C)</label>
         <div class="form-actions"><button class="btn orange" type="submit">Tambah pemain</button></div></form>
       <details class="fold"><summary>Tempel banyak pemain</summary><form data-form="bulk-players" data-id="${esc(t.id)}">
-        <p class="hint">Satu pemain per baris: <code>nomor, nama, gk</code> (kata <b>gk</b> hanya untuk kiper).<br><code>1, Dedi, gk</code><br><code>7, Andi</code></p>
+        <p class="hint">Satu pemain per baris: <code>nomor, nama, gk, c</code> (kata <b>gk</b> untuk kiper, <b>c</b> untuk kapten; maksimal satu kapten).<br><code>1, Dedi, gk</code><br><code>7, Andi, c</code><br><code>9, Budi</code></p>
         <textarea name="text"></textarea><div class="form-actions"><button class="btn orange" type="submit">Tambahkan semua</button></div></form></details></div>
     <div class="panel"><h2 class="a">Official <span class="cntb">${offs.length}/${LIMITS.officials}</span></h2>
       ${offs.map((o) => `<div class="player-line"><b>–</b><span>${esc(o.name)}</span><span></span><button class="btn sm danger mini" data-act="del-player" data-id="${esc(o.id)}">Hapus</button></div>`).join("") || `<p class="hint">Belum ada official.</p>`}
@@ -1129,7 +1131,10 @@ const actions = {
     const p = state.playerById[id];
     const v = await playerBox(p, playersOf(p.teamId).filter((x) => x.id !== id));
     if (!v) return;
-    await updateDoc(doc(db, "players", id), { number: v.number === "" ? null : Number(v.number), name: v.name, isGK: v.isGK });
+    const b = writeBatch(db);
+    if (v.isCaptain) playersOf(p.teamId).filter((x) => x.id !== id && x.isCaptain).forEach((x) => b.update(doc(db, "players", x.id), { isCaptain: false }));
+    b.update(doc(db, "players", id), { number: v.number === "" ? null : Number(v.number), name: v.name, isGK: v.isGK, isCaptain: v.isCaptain });
+    await b.commit();
     toast("Pemain diperbarui");
   },
 };
@@ -1263,7 +1268,11 @@ const forms = {
     const n = String(fd.get("number")).trim();
     if (n !== "" && playersOf(f.dataset.id).some((p) => p.number === Number(n))) throw new Error(`No punggung ${n} sudah dipakai di tim ini.`);
     if (playersOf(f.dataset.id).length >= LIMITS.players && !(await confirmBox(`Tim ini sudah punya ${playersOf(f.dataset.id).length} pemain (ketentuan maksimal ${LIMITS.players}). Tetap tambahkan?`, { title: "Melebihi batas pemain", ok: "Ya, tambahkan" }))) return;
-    await setDoc(doc(collection(db, "players")), { teamId: f.dataset.id, name: String(fd.get("name")).trim(), number: n === "" ? null : Number(n), isGK: !!fd.get("gk"), role: "player" });
+    const isCaptain = !!fd.get("cap");
+    const b = writeBatch(db);
+    if (isCaptain) playersOf(f.dataset.id).filter((p) => p.isCaptain).forEach((p) => b.update(doc(db, "players", p.id), { isCaptain: false }));
+    b.set(doc(collection(db, "players")), { teamId: f.dataset.id, name: String(fd.get("name")).trim(), number: n === "" ? null : Number(n), isGK: !!fd.get("gk"), isCaptain, role: "player" });
+    await b.commit();
     f.reset();
   },
   async official(f) {
@@ -1283,7 +1292,8 @@ const forms = {
       if (/^\d{1,2}$/.test(parts[0]) && parts.length > 1) number = Number(parts.shift());
       const name = (parts.shift() || "").trim();
       const isGK = parts.some((x) => /^(gk|kiper)$/i.test(x.trim()));
-      if (name) entries.push({ name, number, isGK });
+      const isCaptain = parts.some((x) => /^(c|cap|kapten)$/i.test(x.trim()));
+      if (name) entries.push({ name, number, isGK, isCaptain });
     });
     if (!entries.length) throw new Error("Tidak ada pemain yang terbaca.");
     // nomor punggung tidak boleh kembar (di daftar ini maupun dengan pemain yang sudah ada)
@@ -1293,10 +1303,13 @@ const forms = {
       if (used.has(e.number)) throw new Error(`No punggung ${e.number} dipakai dua kali (${used.get(e.number)} dan ${e.name}).`);
       used.set(e.number, e.name);
     }
+    const newCaps = entries.filter((e) => e.isCaptain).length;
+    if (newCaps > 1) throw new Error("Kapten hanya boleh satu orang per tim.");
     const total = playersOf(f.dataset.id).length + entries.length;
     if (total > LIMITS.players && !(await confirmBox(`Tim ini akan punya ${total} pemain (ketentuan maksimal ${LIMITS.players}). Tetap tambahkan?`, { title: "Melebihi batas pemain", ok: "Ya, tambahkan" }))) return;
     const b = writeBatch(db);
-    entries.forEach((e) => b.set(doc(collection(db, "players")), { teamId: f.dataset.id, name: e.name, number: e.number, isGK: e.isGK, role: "player" }));
+    if (newCaps) playersOf(f.dataset.id).filter((p) => p.isCaptain).forEach((p) => b.update(doc(db, "players", p.id), { isCaptain: false }));
+    entries.forEach((e) => b.set(doc(collection(db, "players")), { teamId: f.dataset.id, name: e.name, number: e.number, isGK: e.isGK, isCaptain: !!e.isCaptain, role: "player" }));
     await b.commit(); f.reset(); toast("Pemain ditambahkan");
   },
   async announce(f) {

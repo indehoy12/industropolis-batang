@@ -143,7 +143,8 @@ Setiap pengunjung membaca seluruh data (tim, pemain, laga, kejadian), kira-kira 
 ## Impor tim, pemain, dan official dari Excel / CSV
 Admin → **Tim & Pemain → Tambah tim → Impor Excel / CSV**. Contoh file ada di `public/templates/` (juga bisa diunduh dari panel itu).
 
-Satu baris = satu orang, kolom: **Tim, Grup, Peran, No, Nama** (urutan bebas, baris pertama = judul).
+Satu baris = satu orang, kolom: **Tim, Grup, Peran, No, Nama**, dan **Kapten** (opsional; urutan bebas, baris pertama = judul).
+- **Kapten**: isi `Ya` (atau `C`, `1`, `x`) di baris kaptennya, kosongkan untuk yang lain. Maksimal satu per tim (lebih dari satu = galat). Bila kolom Kapten tidak ada di file, status kapten yang sudah tersimpan tidak diubah.
 - **Peran**: Pemain, Kiper, atau Official (kosong = Pemain). **No**: nomor punggung 0–99, wajib untuk pemain/kiper, tidak boleh kembar dalam satu tim; kosongkan untuk official.
 - Ketentuan liga: maksimal 10 pemain dan 2 official per tim, 16 tim. Pelanggaran hanya jadi peringatan; no kembar, no kosong, dan nama kosong menghalangi impor sampai file diperbaiki.
 - Ada pratinjau sebelum data disimpan. Impor aman diulang: tim dicocokkan lewat nama, pemain lewat no punggung. Opsi **Ganti total** menghapus pemain lama yang tidak ada di file.
@@ -160,3 +161,9 @@ Satu baris = satu orang, kolom: **Tim, Grup, Peran, No, Nama** (urutan bebas, ba
 - **Admin**: sidebar kiri di desktop; di HP berubah menjadi bilah menu di bawah layar (mudah dijangkau jempol). Font: Barlow & Barlow Condensed (Google Fonts).
 - **Data contoh 16 tim**: `public/templates/data-16-tim-ifl-2026.xlsx` (dan `.csv`). Nama tim dan pemain fiktif; ganti sebelum impor.
 - **Jadwal 31 laga**: `public/templates/jadwal-ifl-2026.txt` (tempel di Admin → Pertandingan → Tambah pertandingan → Tempel banyak; impor dulu data 16 tim) dan `.xlsx` untuk dibaca/dicetak. Waktu yang belum ditentukan ditulis `TBD` (contoh: final) dan tampil sebagai "Waktu akan ditentukan"; jamnya bisa diisi nanti lewat Kelola laga.
+
+## Kapten tim
+- Kapten ditandai badge **C** (lingkaran oranye) di samping nama pemain: daftar tim & line up di website, serta daftar pemain, editor line up, dan papan kejadian di admin.
+- Satu kapten per tim. Menetapkan kapten baru otomatis mencabut kapten lama di tim itu.
+- Cara mengatur: Admin → Tim & Pemain → ketuk tim → **Tambah pemain** atau **Ubah** pemain → centang **Kapten (C)**. Lewat **Tempel banyak pemain** tambahkan kata `c` atau `kapten` (mis. `7, Andi, c`). Lewat impor Excel/CSV pakai kolom **Kapten**.
+- Disimpan di dokumen pemain sebagai `isCaptain` (true/false). Tidak perlu mengubah `firestore.rules`.

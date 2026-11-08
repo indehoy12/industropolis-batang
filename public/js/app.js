@@ -373,7 +373,7 @@ function timView() {
       const officials = state.players.filter((p) => p.teamId === t.id && p.role === "official");
       return `<details class="team" data-team="${esc(t.id)}" ${openTeams.has(t.id) ? "open" : ""}>
         <summary>${badge(t)}<span>${esc(t.name)}</span><span class="c">${roster.length} pemain</span></summary>
-        <div class="roster">${roster.length ? roster.map((p) => `<div class="pl"><span class="no">${p.number ?? ""}</span><span>${esc(p.name)}</span>${p.isGK ? '<span class="badge-gk">GK</span>' : ""}</div>`).join("") : `<p class="muted small" style="padding:6px 0">Pemain belum diinput.</p>`}${officials.length ? `<p class="muted small ofs">Official: ${officials.map((o) => esc(o.name)).join(", ")}</p>` : ""}</div></details>`;
+        <div class="roster">${roster.length ? roster.map((p) => `<div class="pl"><span class="no">${p.number ?? ""}</span><span>${esc(p.name)}</span>${p.isCaptain ? '<span class="badge-cap" title="Kapten">C</span>' : ""}${p.isGK ? '<span class="badge-gk">GK</span>' : ""}</div>`).join("") : `<p class="muted small" style="padding:6px 0">Pemain belum diinput.</p>`}${officials.length ? `<p class="muted small ofs">Official: ${officials.map((o) => esc(o.name)).join(", ")}</p>` : ""}</div></details>`;
     }).join("")}</div>`).join("") + `</div>${footer}`;
 }
 
@@ -413,7 +413,7 @@ function lineupCol(m, side, events) {
     const ogs = events.filter((e) => e.type === "own_goal" && e.playerId === id).length;
     const yc = events.some((e) => e.type === "yellow" && e.playerId === id);
     const rc = events.some((e) => e.type === "red" && e.playerId === id);
-    return `<div class="lp ${sub ? "sub" : ""}"><span class="no">${p.number ?? ""}</span><span>${esc(p.name)}</span><span class="badges">${p.isGK ? '<span class="badge-gk">GK</span>' : ""}${goals ? `${ballSvg()}${goals > 1 ? `<b class="gcnt">${goals}</b>` : ""}${pen ? '<i class="evtag">P</i>' : ""}` : ""}${ogs ? `${ballSvg("og")}<i class="evtag og">OG</i>` : ""}${yc ? '<span class="ico yc"></span>' : ""}${rc ? '<span class="ico rc"></span>' : ""}</span></div>`;
+    return `<div class="lp ${sub ? "sub" : ""}"><span class="no">${p.number ?? ""}</span><span>${esc(p.name)}</span><span class="badges">${p.isCaptain ? '<span class="badge-cap" title="Kapten">C</span>' : ""}${p.isGK ? '<span class="badge-gk">GK</span>' : ""}${goals ? `${ballSvg()}${goals > 1 ? `<b class="gcnt">${goals}</b>` : ""}${pen ? '<i class="evtag">P</i>' : ""}` : ""}${ogs ? `${ballSvg("og")}<i class="evtag og">OG</i>` : ""}${yc ? '<span class="ico yc"></span>' : ""}${rc ? '<span class="ico rc"></span>' : ""}</span></div>`;
   };
   const starters = (lu.starters || []).map((id) => row(id, false)).join("");
   const subs = (lu.subs || []).map((id) => row(id, true)).join("");
