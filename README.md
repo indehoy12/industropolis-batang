@@ -22,7 +22,7 @@ ifl-website/
    │   ├─ store.js       pengambilan data realtime
    │   └─ util.js        hitungan klasemen, statistik, jam laga
    └─ assets/            ← GAMBAR YANG BOLEH KAMU GANTI
-       ├─ logo.png             logo IFL (header, favicon). Belum ada: taruh file Anda di sini
+       ├─ logo.png             logo IFL (header, favicon). Belum ada: tampil kotak "LOGO", taruh file Anda di sini
        ├─ bg-arena.jpg         background stadion
        ├─ logo-industropolis.png  logo penyelenggara
        ├─ logo-sez.png            logo penyelenggara
@@ -38,11 +38,10 @@ Timpa file di `public/assets/` dengan **nama file yang sama**, lalu unggah ulang
 Rekomendasi: logo format PNG latar transparan, lebar sekitar 600–1600 px.
 
 ### Logo tim
-Tidak lewat folder. Buka **Admin → Tim & Pemain → Daftar tim → ketuk tim → Logo tim → pilih gambar**.
+Tidak lewat folder. Buka **Admin → Tim & Pemain → Daftar tim → ketuk tim → Logo tim → pilih gambar** (disarankan persegi 512 x 512 px, PNG transparan).
 Gambar otomatis dikecilkan dan langsung tampil di website (klasemen, daftar tim, detail laga) tanpa deploy ulang.
 Tim yang belum punya logo menampilkan lingkaran berisi singkatan nama tim.
 
-**Pustaka logo klub (14 logo)**: file ada di `public/assets/logos/` (PNG transparan, 192 x 192 px, sekitar 2–18 KB per logo). Nama file jangan diganti: alamatnya tersimpan di data tim. Bila menambah logo baru, kecilkan dulu ke sekitar 192 px agar halaman klasemen tetap ringan. Di halaman tim, buka **Logo tim → Pilih dari pustaka logo klub** lalu ketuk logonya.
 
 ## Langkah pasang (urut)
 

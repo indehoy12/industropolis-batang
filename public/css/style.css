@@ -501,3 +501,8 @@ details.team, .bm { border: 1px solid rgba(14,26,51,.06); border-radius: 18px; b
 .pen-card { margin-bottom: 12px; }
 .pen-card > h3 b { margin-left: 6px; }
 .pen-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--rule); font-weight: 600; }
+
+/* Pengganti logo situs bila assets/logo.png belum diunggah */
+.logo-ph { display: inline-grid; place-items: center; box-sizing: border-box; flex: none; border: 2px dashed currentColor; border-radius: 6px; font-family: var(--font-d); font-weight: 700; letter-spacing: .08em; opacity: .75; }
+.brand .logo-ph { width: 40px; height: 40px; font-size: 10px; }
+.board-idle .logo-ph { width: 92px; height: 92px; font-size: 18px; }

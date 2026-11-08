@@ -616,3 +616,20 @@ export function skeleton(kind = "list") {
   }
   return `<div class="sk-wrap" role="status" aria-busy="true" aria-label="Memuat">${body}</div>`;
 }
+
+// Logo situs (assets/logo.png) bersifat opsional. Bila file belum ada, gambar diganti kotak bertuliskan "LOGO".
+// Begitu logo.png diunggah, gambar asli otomatis tampil. Pakai listener (bukan atribut onerror) karena CSP situs melarang skrip inline.
+if (typeof document !== "undefined") {
+  const placeholder = (img) => {
+    const ph = document.createElement("span");
+    ph.className = "logo-ph";
+    ph.setAttribute("aria-hidden", "true");
+    ph.textContent = "LOGO";
+    img.replaceWith(ph);
+  };
+  document.addEventListener("error", (e) => { if (e.target?.matches?.("img[data-sitelogo]")) placeholder(e.target); }, true);
+  // gambar yang sudah gagal sebelum skrip ini jalan (mis. logo di header statis)
+  const sweep = () => document.querySelectorAll("img[data-sitelogo]").forEach((i) => { if (i.complete && i.naturalWidth === 0) placeholder(i); });
+  window.addEventListener("load", sweep);
+  document.addEventListener("DOMContentLoaded", sweep);
+}

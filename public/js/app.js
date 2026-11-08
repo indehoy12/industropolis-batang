@@ -30,7 +30,7 @@ function initials(team) {
 }
 function badge(team, sm = false, size = "") {
   const cls = sm ? "tbadge sm" : size ? `tbadge ${size}` : "tbadge";
-  if (team?.logoUrl) return `<span class="${cls}"><img src="${esc(team.logoUrl)}" alt="" loading="lazy"></span>`;
+  if (team?.logoUrl && !team.logoUrl.startsWith("/assets/logos/")) return `<span class="${cls}"><img src="${esc(team.logoUrl)}" alt="" loading="lazy"></span>`;
   return `<span class="${cls}" style="background:${colorFor(team)}">${esc(initials(team))}</span>`;
 }
 const tName = (id) => state.teamById[id]?.name ?? "Belum ditentukan";
@@ -110,7 +110,7 @@ function standingsTable(rows, qualify) {
   </tr></thead><tbody>${rows
     .map(
       (r, i) => `<tr class="${i < qualify && r.p > 0 ? "q" : ""}">
-      <td class="rank">${i + 1}</td><td class="tm">${state.teamById[r.teamId]?.logoUrl ? `<span class="tmrow">${badge(state.teamById[r.teamId], true)}${esc(r.name)}${tieMark(r)}</span>` : esc(r.name) + tieMark(r)}</td><td>${r.p}</td>
+      <td class="rank">${i + 1}</td><td class="tm">${state.teamById[r.teamId]?.logoUrl && !state.teamById[r.teamId].logoUrl.startsWith("/assets/logos/") ? `<span class="tmrow">${badge(state.teamById[r.teamId], true)}${esc(r.name)}${tieMark(r)}</span>` : esc(r.name) + tieMark(r)}</td><td>${r.p}</td>
       <td class="opt">${r.w}</td><td class="opt">${r.d}</td><td class="opt">${r.l}</td>
       <td>${r.gf}</td><td class="opt">${r.ga}</td><td>${r.gf - r.ga > 0 ? "+" : ""}${r.gf - r.ga}</td><td class="pts">${r.pts}</td></tr>`
     )
@@ -154,7 +154,7 @@ function boardItems(live, next) {
 function boardView(items) {
   if (!items.length) {
     return `<div class="board-in"><div class="board-idle">
-      <img src="assets/logo.png" alt="" onerror="this.remove()">
+      <img src="assets/logo.png" alt="" data-sitelogo>
       <h1>${esc(TOURNAMENT.name)}</h1>
       <p>${dateRange}, ${esc(TOURNAMENT.venue)}. Skor langsung, jadwal, klasemen, dan statistik pemain ada di halaman ini.</p>
       <div class="acts"><a class="board-link" href="#/jadwal">Lihat jadwal</a><a class="board-link ghost" href="#/klasemen">Klasemen</a></div>

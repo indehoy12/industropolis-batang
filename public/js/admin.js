@@ -5,7 +5,6 @@ import {
 } from "./firebase.js";
 import { state, startStore, onChange, isReady } from "./store.js";
 import { parseFile, buildPlan, buildOps, LIMITS } from "./importer.js";
-import { LOGO_LIBRARY, logoPath } from "./logos.js";
 import {
   STAGES, esc, timeStr, dayShort, sortByKickoff, toLocalInput, fromLocalInput, elapsedSec, clockText,
   planKnockout, computeBracket, unresolvedTies, finalScore, scoreFromEvents, matchReadiness, lineupIds, FUTSAL_STARTERS, nowMs, syncServerTime, ballSvg,
@@ -74,7 +73,7 @@ function initials(team) {
 }
 function badge(team, size = "") {
   const cls = size ? `tbadge ${size}` : "tbadge";
-  if (team?.logoUrl) return `<span class="${cls}"><img src="${esc(team.logoUrl)}" alt="" loading="lazy"></span>`;
+  if (team?.logoUrl && !team.logoUrl.startsWith("/assets/logos/")) return `<span class="${cls}"><img src="${esc(team.logoUrl)}" alt="" loading="lazy"></span>`;
   return `<span class="${cls}" style="background:${esc(colorFor(team))}">${esc(initials(team))}</span>`;
 }
 const matchRef = (id) => doc(db, "matches", id);
@@ -198,7 +197,7 @@ function route() {
 
 // ---------- Tampilan ----------
 function loginView() {
-  return `<div class="login"><img src="../assets/logo.png" alt="IFL" onerror="this.remove()">
+  return `<div class="login"><img src="../assets/logo.png" alt="IFL" data-sitelogo>
     <h2 class="a" style="text-align:center">Login panitia</h2>
     <form data-form="login">
       <label>Email</label><input type="email" name="email" autocomplete="username" required>
@@ -225,7 +224,7 @@ function topBar() {
   const tree = NAV.map((g) => `<div class="side-group ${g === cur ? "cur" : ""}"><div class="side-title">${esc(g.title)} ${dot(g)}</div>
       <div class="side-sub">${g.items.map(([k, l]) => `<a class="${k === key ? "on" : ""}" href="#${k}" ${k === key ? 'aria-current="page"' : ""}>${l}</a>`).join("")}</div></div>`).join("");
   return `<aside class="side" id="side">
-    <div class="side-brand"><img src="../assets/logo.png" alt="" onerror="this.remove()"><div><b>Admin IFL</b><small>Panel panitia 2026</small></div></div>
+    <div class="side-brand"><img src="../assets/logo.png" alt="" data-sitelogo><div><b>Admin IFL</b><small>Panel panitia 2026</small></div></div>
     <nav class="side-tree" aria-label="Menu admin">${tree}</nav>
     <div class="side-foot">
       <a class="side-link" href="../" target="_blank" rel="noopener">Lihat website publik ↗</a>
@@ -609,9 +608,8 @@ function teamView(id) {
     <div class="panel"><h2 class="a">Logo tim</h2>
       <div class="logo-edit">${badge(t, "lg")}
         <div><input type="file" accept="image/*" data-logo="${esc(t.id)}">${t.logoUrl ? `<button class="btn sm danger mini" style="margin-top:8px" data-act="del-logo" data-id="${esc(t.id)}">Hapus logo</button>` : ""}</div></div>
-      <p class="hint">Pilih gambar logo (PNG/JPG/SVG). Otomatis dikecilkan (maks. 256 px) dan langsung tampil di website. Latar transparan lebih bagus.</p>
-      <details class="fold"><summary>Pilih dari pustaka logo klub (${LOGO_LIBRARY.length})</summary>
-        <div class="logo-lib">${LOGO_LIBRARY.map((l) => `<button type="button" class="logo-pick${t.logoUrl === logoPath(l.file) ? " on" : ""}" data-act="pick-logo" data-id="${esc(t.id)}" data-file="${esc(l.file)}" title="${esc(l.name)}"><img src="${esc(logoPath(l.file))}" alt="${esc(l.name)}" loading="lazy"><span>${esc(l.name)}</span></button>`).join("")}</div></details></div>
+      <p class="hint">Pilih gambar logo (PNG/JPG/SVG). Disarankan persegi 512 x 512 px, PNG latar transparan. Otomatis dikecilkan ke maks. 256 px dan langsung tampil di website.</p>
+    </div>
     <div class="panel"><h2 class="a">Pemain <span class="cntb">${roster.length}/${LIMITS.players}</span></h2>
       ${roster.map(playerRow).join("") || `<p class="hint">Belum ada pemain.</p>`}
       <form data-form="player" data-id="${esc(t.id)}" class="addform"><h3 class="a">Tambah pemain</h3><div class="grid3" style="align-items:end"><div><label>No.</label><input type="number" name="number" min="0" max="99"></div>
@@ -1106,10 +1104,6 @@ const actions = {
     importState = null;
     toast(`Impor selesai: ${st.plan.totals.teams} tim, ${st.plan.totals.players + st.plan.totals.officials} orang`);
     location.hash = "#teams";
-  },
-  async "pick-logo"(id, b) {
-    await updateDoc(doc(db, "teams", id), { logoUrl: logoPath(b.dataset.file) });
-    toast("Logo dipasang");
   },
   async "del-logo"(id) {
     if (!(await confirmBox("Tim ini akan kembali memakai lingkaran berisi singkatan nama.", { title: "Hapus logo tim?", ok: "Ya, hapus logo", danger: true }))) return;

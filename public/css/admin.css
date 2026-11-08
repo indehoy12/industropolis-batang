@@ -500,11 +500,6 @@ details.imp-team[open] { box-shadow: var(--shadow-1); }
 .tbadge:has(> img) { background: none; border-radius: 0; overflow: visible; box-shadow: none; }
 .tbadge > img { background: none; padding: 0; }
 .logo-edit .tbadge:has(> img) { border: 0; }
-.logo-lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; margin-top: 12px; }
-.logo-pick { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; background: #fff; border: 2px solid #e1e6f0; border-radius: 14px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; text-align: center; min-height: 44px; }
-.logo-pick img { width: 56px; height: 56px; object-fit: contain; }
-.logo-pick:hover { border-color: #b8c4dc; }
-.logo-pick.on { border-color: #c4570a; background: #fff7f0; }
 
 .tbadge > img { transform: scale(1.3); }
 
@@ -524,3 +519,8 @@ details.imp-team[open] { box-shadow: var(--shadow-1); }
 .pen-btns { display: flex; gap: 8px; }
 .pen-btns .btn { flex: 1; min-height: 52px; }
 .pen-status { margin-top: 10px; }
+
+/* Pengganti logo situs bila assets/logo.png belum diunggah */
+.logo-ph { display: inline-grid; place-items: center; box-sizing: border-box; flex: none; border: 2px dashed currentColor; border-radius: 6px; font-family: var(--font-d); font-weight: 700; letter-spacing: .08em; opacity: .75; }
+.side-brand .logo-ph { width: 44px; height: 44px; font-size: 11px; }
+.login .logo-ph { width: 110px; height: 110px; margin: 0 auto 8px; font-size: 20px; display: grid; }
