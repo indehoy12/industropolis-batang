@@ -507,5 +507,134 @@ details.team, .bm { border: 1px solid rgba(14,26,51,.06); border-radius: 18px; b
 .brand .logo-ph { width: 40px; height: 40px; font-size: 10px; }
 .board-idle .logo-ph { width: 92px; height: 92px; font-size: 18px; }
 
+/* ---------- Layar TV / proyektor (#/tv) ---------- */
+body.tv-mode { background: #071a3d; color: #fff; overflow: hidden; cursor: none; }
+.tv-mode .sitebar, .tv-mode .skip, .tv-mode .scrim, .tv-mode .foot { display: none !important; }
+.tv-mode #app { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+.tv { height: 100vh; display: grid; grid-template-rows: auto 1fr auto auto; gap: 1.6vh; padding: 2.2vh 3vw; background: radial-gradient(120% 90% at 50% 40%, #12397a 0%, #0b2a5b 45%, #071a3d 100%); }
+.tv-top { display: flex; justify-content: space-between; align-items: center; gap: 2vw; font-family: var(--font-d); font-size: clamp(18px, 3.4vh, 44px); letter-spacing: .06em; text-transform: uppercase; }
+.tv-brand { display: flex; align-items: center; gap: 1vw; font-weight: 700; }
+.tv-brand img, .tv-brand .logo-ph { width: 5.4vh; height: 5.4vh; font-size: 1.4vh; object-fit: contain; }
+.tv-label { color: #9fb6e8; text-align: center; flex: 1; }
+.tv-wall { color: #ffb15c; font-variant-numeric: tabular-nums; min-width: 8ch; text-align: right; }
+.tv-main { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 2vw; min-height: 0; }
+.tv-team { display: flex; flex-direction: column; align-items: center; gap: 2vh; text-align: center; font-family: var(--font-d); font-weight: 700; font-size: clamp(26px, 6.4vh, 96px); line-height: 1.05; overflow-wrap: anywhere; }
+.tv-team .tbadge.lg { width: min(24vh, 15vw); height: min(24vh, 15vw); font-size: min(8vh, 5vw); }
+.tv-mid { text-align: center; }
+.tv-score { font-family: var(--font-d); font-weight: 700; font-size: clamp(70px, 22vh, 320px); line-height: .9; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tv-score.vs { color: #6f94dc; font-size: clamp(56px, 17vh, 240px); }
+.tv-clock { font-family: var(--font-d); font-size: clamp(36px, 9.5vh, 150px); line-height: 1.1; color: #ffb15c; letter-spacing: .05em; font-variant-numeric: tabular-nums; min-height: 1.1em; }
+.tv-status { margin-top: 1vh; }
+.tv-status .pill { font-size: clamp(18px, 3.8vh, 48px); padding: .12em .6em; }
+.tv-note { margin-top: 1vh; font-size: clamp(16px, 3.2vh, 40px); color: #cbdaf8; }
+.tv-feed { background: rgba(255, 255, 255, .08); border-radius: 2vh; padding: 1.6vh 2vw; min-height: 11vh; max-height: 38vh; overflow: hidden; position: relative; }
+.tv-ev { display: flex; align-items: center; gap: 1.4vw; padding: .6vh 0; font-size: clamp(16px, 3.3vh, 42px); }
+.tv-ev + .tv-ev { border-top: 1px solid rgba(255, 255, 255, .14); }
+.tv-ev small { display: block; font-size: .7em; color: #9fb6e8; }
+.tv-min { font-family: var(--font-d); font-weight: 700; min-width: 5ch; color: #ffb15c; }
+.tv .ball { --b: #fff; width: 1.2em; height: 1.2em; }
+.tv .ball.og { --b: #ff9aa3; }
+.tv .ball .bf.bs { fill: #0b2a5b; }
+.tv .evtag { font-size: .45em; }
+.tv-empty, .tv-last { font-size: clamp(16px, 3.3vh, 42px); color: #cbdaf8; }
+.tv-last b { font-family: var(--font-d); color: #ffb15c; margin: 0 .4em; }
+.tv-h { font-family: var(--font-d); font-size: clamp(18px, 3.4vh, 44px); text-transform: uppercase; letter-spacing: .06em; color: #9fb6e8; margin-bottom: .8vh; }
+.tv-std table.std { font-size: clamp(13px, 2.2vh, 28px); color: #fff; }
+.tv-std table.std th { color: #9fb6e8; font-size: .8em; }
+.tv-std table.std td { border-top-color: rgba(255, 255, 255, .14); padding: .35vh .4vw; }
+.tv-std table.std td.rank { color: #9fb6e8; }
+.tv-std table.std td.pts { font-size: 1.3em; }
+.tv-std table.std .opt { display: table-cell; }
+.tv-dots { position: absolute; right: 1.4vw; top: 1.2vh; display: flex; gap: .6vw; }
+.tv-dots i { width: 1.2vh; height: 1.2vh; border-radius: 50%; background: rgba(255, 255, 255, .3); }
+.tv-dots i.on { background: #ffb15c; }
+.tv-solo > div { grid-column: 1 / -1; text-align: center; }
+.tv-solo h1 { font-family: var(--font-d); font-size: clamp(40px, 13vh, 200px); line-height: 1; }
+.tv-idle { grid-template-rows: auto 1fr auto auto; }
+
+/* TV: line up saat hitung mundur */
+.tv-lu2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3vw; }
+.tv-lucol h3 { font-family: var(--font-d); font-size: clamp(16px, 3vh, 40px); color: #ffb15c; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6vh; }
+.tv-lu { display: flex; align-items: center; gap: 1.2vw; font-size: clamp(13px, 2.4vh, 32px); padding: .2vh 0; border-top: 1px solid rgba(255, 255, 255, .14); }
+.tv-lu .no { font-family: var(--font-d); font-weight: 700; min-width: 2.2ch; text-align: right; color: #9fb6e8; }
+.tv-lu .nm { font-weight: 600; }
+.tv-lu .gk { font-family: var(--font-d); font-weight: 700; font-size: .7em; padding: 0 .5em; border: 2px solid #ffb15c; color: #ffb15c; border-radius: .3em; }
+.tv-sub { margin-top: .5vh; font-size: clamp(11px, 1.9vh, 24px); color: #9fb6e8; }
+
 /* Kapten */
-.badge-cap { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; font-size: 11px; font-weight: 800; line-height: 1; border-radius: 50%; background: var(--orange, #f47b12); color: #fff; align-self: center; vertical-align: middle; }
+.badge-cap { background: var(--ink-2); color: #fff; border-color: var(--ink-2); margin-left: 4px; }
+.tv-lu .gk.cap { background: #ffb15c; color: #0b2a5b; }
+
+/* TV: bar penyelenggara. Latar putih karena logo berwarna gelap. Gambarnya sama dengan blok penyelenggara di beranda (assets/logo-industropolis.png, logo-sez.png, logo-danantara.png). */
+.tv-sponsors { display: flex; align-items: center; justify-content: center; gap: 2.4vw; height: 7vh; padding: 0 2.4vw; background: #fff; border-radius: 1.6vh; }
+.tv-sponsors img { height: 5vh; max-width: 24vw; width: auto; object-fit: contain; }
+.tv-sponsors i { width: 2px; height: 4.4vh; background: #d4dbe8; border-radius: 1px; }
+
+/* TV: jadwal, hasil, statistik, banner */
+.tv-row { display: flex; align-items: center; gap: 2vw; font-size: clamp(14px, 2.7vh, 34px); padding: .5vh 0; border-top: 1px solid rgba(255, 255, 255, .14); }
+.tv-when { flex: 0 0 30%; color: #ffb15c; font-weight: 600; }
+.tv-teams { flex: 1; font-weight: 700; }
+.tv-teams i { font-style: normal; color: #9fb6e8; font-weight: 400; margin: 0 .3em; }
+.tv-teams b { font-family: var(--font-d); color: #ffb15c; margin: 0 .4em; }
+.tv-grp { color: #9fb6e8; font-size: .8em; text-align: right; }
+.tv-statcol h3 { font-family: var(--font-d); font-size: clamp(16px, 3vh, 40px); color: #ffb15c; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6vh; }
+.tv-pl { display: flex; justify-content: space-between; gap: 1vw; font-size: clamp(13px, 2.5vh, 32px); padding: .3vh 0; border-top: 1px solid rgba(255, 255, 255, .14); font-weight: 600; }
+.tv-pl small { color: #9fb6e8; font-weight: 400; margin-left: .4em; }
+.tv-pl b { font-family: var(--font-d); color: #ffb15c; }
+.tv-banner img { display: block; margin: 0 auto; max-width: 100%; max-height: 31vh; border-radius: 1vh; }
+
+/* ---------- Jam real-time (semua halaman) ---------- */
+.rtclock { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rtclock .rt-d { font-size: 11px; color: #a9bdea; font-weight: 500; }
+.rtclock .rt-t { font-family: var(--font-d); font-size: 20px; font-weight: 700; color: #ffb15c; letter-spacing: .04em; }
+.rtclock.site { margin-left: auto; }
+@media (min-width: 900px) { .rtclock.site { margin-left: auto; margin-right: 8px; } .rtclock .rt-d { font-size: 12px; } .rtclock .rt-t { font-size: 22px; } }
+@media (max-width: 420px) { .rtclock .rt-d { font-size: 9.5px; } .rtclock .rt-t { font-size: 16px; } }
+.burger { flex: none; }
+.tv-top .rtclock.tvc { min-width: 8ch; }
+.tv-top .rtclock.tvc .rt-d { font-size: clamp(11px, 2vh, 26px); letter-spacing: .04em; color: #9fb6e8; text-transform: none; }
+.tv-top .rtclock.tvc .rt-t { font-size: clamp(18px, 3.8vh, 50px); }
+
+/* ---------- TV saat menunggu laga: header laga berikutnya diperkecil, panel info bawah diperbesar ---------- */
+.tv.tv-next { grid-template-rows: auto auto 1fr auto; gap: 1.2vh; }
+.tv-next .tv-label { font-size: .62em; }
+.tv-next .tv-team { font-size: clamp(20px, 4.2vh, 64px); gap: 1vh; }
+.tv-next .tv-team .tbadge.lg { width: min(14vh, 10vw); height: min(14vh, 10vw); font-size: min(4.8vh, 3.4vw); }
+.tv-next .tv-score.vs { font-size: clamp(36px, 9vh, 130px); }
+.tv-next .tv-clock { font-size: clamp(30px, 7vh, 110px); }
+.tv-next .tv-note { font-size: clamp(14px, 2.4vh, 30px); margin-top: .4vh; }
+.tv-next .tv-feed { max-height: none; min-height: 0; padding: 2vh 2.4vw; }
+.tv-next .tv-h { font-size: clamp(20px, 4vh, 52px); margin-bottom: 1.2vh; }
+.tv-next .tv-std table.std { font-size: clamp(16px, 3.1vh, 40px); }
+.tv-next .tv-std table.std td { padding: .9vh .5vw; }
+.tv-next .tv-row { font-size: clamp(16px, 3.4vh, 44px); padding: 1.1vh 0; }
+.tv-next .tv-lu { font-size: clamp(15px, 3.2vh, 42px); padding: .7vh 0; }
+.tv-next .tv-lucol h3, .tv-next .tv-statcol h3 { font-size: clamp(18px, 3.6vh, 48px); }
+.tv-next .tv-pl { font-size: clamp(15px, 3.2vh, 42px); padding: .8vh 0; }
+.tv-next .tv-sub { font-size: clamp(13px, 2.4vh, 30px); }
+.tv-next .tv-banner { height: 100%; display: flex; align-items: center; }
+.tv-next .tv-banner img { max-height: 100%; max-width: 100%; object-fit: contain; }
+
+/* sponsor TV: strip putih lebih kecil */
+.tv-sponsors { height: 5vh; padding: 0 2vw; gap: 2vw; border-radius: 1.2vh; }
+.tv-sponsors img { height: 3.4vh; max-width: 20vw; }
+.tv-sponsors i { height: 3vh; }
+
+/* sponsor TV: kotak putih kecil, rata kanan, tiga logo diseragamkan */
+.tv-sponsors { justify-self: end; width: fit-content; max-width: 100%; height: 4.6vh; padding: 0 1.4vw; gap: 1.2vw; border-radius: 1vh; }
+.tv-sponsors img { width: auto; max-width: none; object-fit: contain; }
+.tv-sponsors img[src*="industropolis"] { height: 3.3vh; }
+.tv-sponsors img[src*="sez"] { height: 3.1vh; }
+.tv-sponsors img[src*="danantara"] { height: 2.7vh; }
+.tv-sponsors i { height: 2.6vh; }
+
+/* TV: semua slide bawah seragam (judul, ukuran huruf, posisi tengah, penunjuk slide) */
+.tv-next .tv-feed { display: flex; flex-direction: column; justify-content: flex-start; }
+.tv-next .tv-feed > .tv-banner { margin: auto 0; }
+.tv-next .tv-feed > * { width: 100%; }
+.tv-next .tv-feed > .tv-dots { width: auto; }
+.tv-next .tv-h { font-size: clamp(20px, 3.8vh, 48px); }
+.tv-next .tv-std table.std { font-size: clamp(16px, 3.2vh, 42px); }
+.tv-next .tv-std table.std td { padding: 1.2vh .5vw; }
+.tv-next .tv-dots { right: 2vw; top: 2vh; gap: .8vh; }
+.tv-next .tv-dots i { width: 1.4vh; height: 1.4vh; }

@@ -5,8 +5,8 @@
 [[headers]]
   for = "/assets/*"
   [headers.values]
-    # 1 hari (bukan 1 tahun): logo/banner yang diganti dengan nama file sama tetap muncul besok.
-    Cache-Control = "public, max-age=86400"
+    # Selalu cek ke server (hemat lewat ETag/304): logo/banner yang diganti dengan nama file sama langsung berubah, tanpa menunggu cache.
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
   for = "/css/*"

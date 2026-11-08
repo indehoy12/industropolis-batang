@@ -633,3 +633,24 @@ if (typeof document !== "undefined") {
   window.addEventListener("load", sweep);
   document.addEventListener("DOMContentLoaded", sweep);
 }
+
+// ---------- Jam dinding real-time (hari, tanggal, jam:menit:detik WIB) ----------
+// Pakai di halaman mana pun: tulis rtClockHtml() di markup, jam otomatis bergerak tiap detik (jam server, bukan jam perangkat).
+const fmtRtDay = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: TZ });
+const fmtRtTime = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: TZ });
+const rtParts = () => { const d = new Date(nowMs()); return [fmtRtDay.format(d), fmtRtTime.format(d).replace(/\./g, ":")]; };
+export function rtClockHtml(cls = "") {
+  const [d, t] = rtParts();
+  return `<span class="rtclock ${cls}" data-rtclock><span class="rt-d">${d}</span><span class="rt-t">${t} WIB</span></span>`;
+}
+export function tickRtClocks() {
+  const els = document.querySelectorAll("[data-rtclock]");
+  if (!els.length) return;
+  const [d, t] = rtParts();
+  els.forEach((el) => {
+    const a = el.querySelector(".rt-d"), b = el.querySelector(".rt-t");
+    if (a && a.textContent !== d) a.textContent = d;
+    if (b) b.textContent = t + " WIB";
+  });
+}
+if (typeof window !== "undefined") setInterval(tickRtClocks, 1000);

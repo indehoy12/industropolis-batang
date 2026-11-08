@@ -23,7 +23,13 @@ service cloud.firestore {
     }
 
     match /settings/{id}  { allow read: if true; allow write: if isAdmin(); }
-    match /teams/{id}     { allow read: if true; allow write: if isAdmin() && smallLogo(); }
+    // Saat DELETE, request.resource bernilai null sehingga smallLogo() menghasilkan galat dan hapus ditolak.
+    // Karena itu pemeriksaan ukuran logo hanya untuk create/update; hapus cukup cek admin.
+    match /teams/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin() && smallLogo();
+      allow delete: if isAdmin();
+    }
     match /players/{id}   { allow read: if true; allow write: if isAdmin(); }
     match /matches/{id}   { allow read: if true; allow write: if isAdmin(); }
     match /events/{id}    { allow read: if true; allow write: if isAdmin(); }

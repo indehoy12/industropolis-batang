@@ -5,7 +5,7 @@ import {
   clockText, computeStandings, computePlayerStats, computeKeeperStats, keeperDetail, topBy, computeBracket, winnerSide,
   livePill, ftText, addedText, eventMinute, eventCmp, phaseOf,
   REGISTRATION, registrationState, QUALIFY_PER_GROUP, syncServerTime, nowMs, lineupIds, ballSvg,
-  skeleton, shootout, penScoreText, penDots,
+  skeleton, shootout, penScoreText, penDots, rtClockHtml, tickRtClocks,
 } from "./util.js";
 
 const $app = document.getElementById("app");
@@ -373,7 +373,7 @@ function timView() {
       const officials = state.players.filter((p) => p.teamId === t.id && p.role === "official");
       return `<details class="team" data-team="${esc(t.id)}" ${openTeams.has(t.id) ? "open" : ""}>
         <summary>${badge(t)}<span>${esc(t.name)}</span><span class="c">${roster.length} pemain</span></summary>
-        <div class="roster">${roster.length ? roster.map((p) => `<div class="pl"><span class="no">${p.number ?? ""}</span><span>${esc(p.name)}</span>${p.isCaptain ? '<span class="badge-cap" title="Kapten">C</span>' : ""}${p.isGK ? '<span class="badge-gk">GK</span>' : ""}</div>`).join("") : `<p class="muted small" style="padding:6px 0">Pemain belum diinput.</p>`}${officials.length ? `<p class="muted small ofs">Official: ${officials.map((o) => esc(o.name)).join(", ")}</p>` : ""}</div></details>`;
+        <div class="roster">${roster.length ? roster.map((p) => `<div class="pl"><span class="no">${p.number ?? ""}</span><span>${esc(p.name)}</span>${p.isGK ? '<span class="badge-gk">GK</span>' : ""}${p.isCaptain ? '<span class="badge-gk badge-cap">C</span>' : ""}</div>`).join("") : `<p class="muted small" style="padding:6px 0">Pemain belum diinput.</p>`}${officials.length ? `<p class="muted small ofs">Official: ${officials.map((o) => esc(o.name)).join(", ")}</p>` : ""}</div></details>`;
     }).join("")}</div>`).join("") + `</div>${footer}`;
 }
 
@@ -413,7 +413,7 @@ function lineupCol(m, side, events) {
     const ogs = events.filter((e) => e.type === "own_goal" && e.playerId === id).length;
     const yc = events.some((e) => e.type === "yellow" && e.playerId === id);
     const rc = events.some((e) => e.type === "red" && e.playerId === id);
-    return `<div class="lp ${sub ? "sub" : ""}"><span class="no">${p.number ?? ""}</span><span>${esc(p.name)}</span><span class="badges">${p.isCaptain ? '<span class="badge-cap" title="Kapten">C</span>' : ""}${p.isGK ? '<span class="badge-gk">GK</span>' : ""}${goals ? `${ballSvg()}${goals > 1 ? `<b class="gcnt">${goals}</b>` : ""}${pen ? '<i class="evtag">P</i>' : ""}` : ""}${ogs ? `${ballSvg("og")}<i class="evtag og">OG</i>` : ""}${yc ? '<span class="ico yc"></span>' : ""}${rc ? '<span class="ico rc"></span>' : ""}</span></div>`;
+    return `<div class="lp ${sub ? "sub" : ""}"><span class="no">${p.number ?? ""}</span><span>${esc(p.name)}</span><span class="badges">${p.isGK ? '<span class="badge-gk">GK</span>' : ""}${p.isCaptain ? '<span class="badge-gk badge-cap">C</span>' : ""}${goals ? `${ballSvg()}${goals > 1 ? `<b class="gcnt">${goals}</b>` : ""}${pen ? '<i class="evtag">P</i>' : ""}` : ""}${ogs ? `${ballSvg("og")}<i class="evtag og">OG</i>` : ""}${yc ? '<span class="ico yc"></span>' : ""}${rc ? '<span class="ico rc"></span>' : ""}</span></div>`;
   };
   const starters = (lu.starters || []).map((id) => row(id, false)).join("");
   const subs = (lu.subs || []).map((id) => row(id, true)).join("");
@@ -660,6 +660,8 @@ function render() {
   const r = route();
   renderNav(r.name);
   $app.dataset.view = r.name;
+  document.body.classList.toggle("tv-mode", r.name === "tv");
+  tvWake(r.name === "tv");
   if (isReady()) {
     const b = computeBracket(state.teams, state.matches, state.events);
     slotByMatch = new Map([...b.qf, ...b.sf, b.final, ...(b.third ? [b.third] : [])].filter((x) => x.match).map((x) => [x.match.id, x]));
@@ -678,6 +680,7 @@ function render() {
       case "statistik": html = statistikView(); break;
       case "tim": html = timView(); break;
       case "laga": html = matchView(r); break;
+      case "tv": html = tvView(); break;
       default: html = homeView();
     }
   }
@@ -694,7 +697,7 @@ function render() {
     const el = document.getElementById("today-anchor");
     if (el) setTimeout(() => el.scrollIntoView({ block: "start" }), 0);
   }
-  const titles = { home: "", jadwal: "Jadwal · ", klasemen: "Klasemen · ", bagan: "Bagan · ", statistik: "Statistik · ", tim: "Tim · ", laga: "Pertandingan · " };
+  const titles = { home: "", jadwal: "Jadwal · ", klasemen: "Klasemen · ", bagan: "Bagan · ", statistik: "Statistik · ", tim: "Tim · ", laga: "Pertandingan · ", tv: "Layar TV · " };
   document.title = (titles[r.name] ?? "") + TOURNAMENT.name;
 }
 
@@ -718,6 +721,127 @@ document.addEventListener("click", (e) => {
   lastHtml = ""; render();
 });
 
+
+// ---------- Layar TV / proyektor (#/tv) ----------
+// Tanpa menu, huruf besar, skor + jam + kejadian terbaru. Beberapa laga live: bergantian tiap 12 detik.
+let tvIdx = 0;
+const tvTop = (label) => `<header class="tv-top"><span class="tv-brand"><img src="assets/logo.png" alt="" data-sitelogo>IFL 2026</span><span class="tv-label">${label}</span>${rtClockHtml("tvc")}</header>`;
+const tvSponsors = `<footer class="tv-sponsors"><img src="assets/logo-industropolis.png" alt="Industropolis Batang"><i></i><img src="assets/logo-sez.png" alt="Indonesia SEZ"><i></i><img src="assets/logo-danantara.png" alt="Danantara Indonesia"></footer>`;
+const tvTeam = (m, side) => `<div class="tv-team">${badge(state.teamById[side === "A" ? m.teamA : m.teamB], false, "lg")}<b>${esc(sideName(m, side))}</b></div>`;
+// Line up untuk layar TV: inti (kiper di atas), cadangan satu baris. Null bila salah satu tim belum diisi.
+const tvLuReady = (m) => (m.lineupA?.starters || []).length && (m.lineupB?.starters || []).length;
+function tvLineup(m) {
+  const col = (side) => {
+    const lu = m["lineup" + side] || {};
+    const ps = (ids) => ids.map((id) => state.playerById[id]).filter(Boolean);
+    const st = ps(lu.starters || []).sort((a, b) => (b.isGK ? 1 : 0) - (a.isGK ? 1 : 0) || (a.number ?? 999) - (b.number ?? 999));
+    const sb = ps(lu.subs || []).sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
+    return `<div class="tv-lucol"><h3>${esc(sideName(m, side))}</h3>
+      ${st.map((p) => `<div class="tv-lu"><span class="no">${p.number ?? ""}</span><span class="nm">${esc(p.name)}</span>${p.isGK ? '<span class="gk">GK</span>' : ""}${p.isCaptain ? '<span class="gk cap">C</span>' : ""}</div>`).join("")}
+      ${sb.length ? `<p class="tv-sub">Cadangan: ${sb.map((p) => `${p.number ?? ""} ${esc(p.name)}`).join(" · ")}</p>` : ""}</div>`;
+  };
+  return `<h3 class="tv-h">Line up</h3><div class="tv-lu2">${col("A")}${col("B")}</div>`;
+}
+let tvPane = 0; // nomor bagian bawah layar; naik tiap 12 detik saat tidak ada laga live
+const tvRows = (title, rows) => `<h3 class="tv-h">${title}</h3>${rows}`;
+const tvSchedule = (list) => tvRows("Jadwal berikutnya", list.map((m) => `<div class="tv-row"><span class="tv-when">${m.kickoff ? `${esc(dayLong(m.kickoff).replace(/\s\d{4}$/, ""))}, ${esc(timeStr(m.kickoff))}` : "Waktu akan ditentukan"}</span><span class="tv-teams">${esc(sideName(m, "A"))} <i>vs</i> ${esc(sideName(m, "B"))}</span><span class="tv-grp">${matchLabel(m)}</span></div>`).join(""));
+const tvResults = (list) => tvRows("Hasil terakhir", list.map((m) => `<div class="tv-row"><span class="tv-when">${matchLabel(m)}</span><span class="tv-teams">${esc(sideName(m, "A"))} <b>${scoreText(m)}</b> ${esc(sideName(m, "B"))}${penNote(m)}</span></div>`).join(""));
+function tvStats(stats) {
+  const col = (title, key) => {
+    const l = topBy(stats, key, 3);
+    return `<div class="tv-statcol"><h3>${title}</h3>${l.length ? l.map((p) => `<div class="tv-pl"><span>${esc(p.name)} <small>${esc(state.teamById[p.teamId]?.name || "")}</small></span><b>${p[key]}</b></div>`).join("") : `<p class="tv-sub">Belum ada.</p>`}</div>`;
+  };
+  const gk = state.playerById[state.settings.bestGkId];
+  return `<h3 class="tv-h">Statistik</h3><div class="tv-lu2">${col("Top scorer", "goals")}${col("Top assist", "assists")}</div>${gk ? `<p class="tv-sub">Kiper terbaik: ${esc(gk.name)} (${esc(state.teamById[gk.teamId]?.name || "")})</p>` : ""}`;
+}
+// Bagian bawah layar saat tidak ada laga live: line up, klasemen tiap grup, jadwal, hasil, statistik, dan banner, bergantian.
+function tvPaneList(next) {
+  const ms = state.matches, std = computeStandings(state.teams, ms, state.events);
+  const groups = Object.keys(std).filter((g) => g && std[g]?.length).sort((a, b) => a.localeCompare(b)); // urut A, B, C, D
+  const gp = groups.map((g) => () => tvRows(`Klasemen Grup ${esc(g)}`, `<div class="tv-std">${standingsTable(std[g], QUALIFY_PER_GROUP)}</div>`));
+  const upcoming = ms.filter((m) => m.status === "scheduled").sort(sortByKickoff).slice(0, 5);
+  const done = ms.filter((m) => m.status === "ft").sort((a, b) => sortByKickoff(b, a)).slice(0, 4);
+  const stats = computePlayerStats(state.players, state.events);
+  const hasStats = topBy(stats, "goals", 1).length || topBy(stats, "assists", 1).length;
+  const bn = BANNERS.map((b) => () => `<div class="tv-banner"><img src="${b.src}" alt="${esc(b.alt)}"></div>`);
+  return [
+    next && tvLuReady(next) ? () => tvLineup(next) : null,
+    ...gp, // klasemen Grup A, B, C, D berurutan
+    upcoming.length ? () => tvSchedule(upcoming) : null, bn[0],
+    hasStats ? () => tvStats(stats) : null, done.length ? () => tvResults(done) : null,
+    bn[1], bn[2],
+  ].filter(Boolean);
+}
+const tvDots = (n) => n > 1 ? `<div class="tv-dots">${Array.from({ length: n }, (_, i) => `<i class="${i === tvPane % n ? "on" : ""}"></i>`).join("")}</div>` : "";
+function tvView() {
+  const ms = state.matches;
+  const live = ms.filter((m) => m.status === "live").sort(sortByKickoff);
+  const next = ms.filter((m) => m.status === "scheduled").sort(sortByKickoff)[0];
+  const last = ms.filter((m) => m.status === "ft").sort((a, b) => sortByKickoff(b, a))[0];
+
+  if (live.length) {
+    const m = live[tvIdx % live.length];
+    const evs = state.events.filter((e) => e.matchId === m.id).sort((a, b) => evSort(b, a)).slice(0, 4);
+    const so = shootout(m).any && (m.scoreA ?? 0) === (m.scoreB ?? 0) ? `<div class="tv-note">Adu penalti ${penScoreText(m)}</div>` : "";
+    return `<div class="tv">${tvTop(matchLabel(m))}
+      <section class="tv-main">${tvTeam(m, "A")}
+        <div class="tv-mid"><div class="tv-score">${scoreText(m)}</div>
+          <div class="tv-clock" data-clockbig="${esc(m.id)}">${esc(clockText(m))}</div>
+          <div class="tv-status">${statusPill(m)}</div>
+          ${addedText(m) ? `<div class="tv-note">${esc(addedText(m))}</div>` : ""}${so}</div>
+        ${tvTeam(m, "B")}</section>
+      <section class="tv-feed">${evs.length ? evs.map((e) => `<div class="tv-ev"><span class="tv-min">${eventMinute(e)}</span>${eventIcon(e)}<div>${eventText(m, e)}</div></div>`).join("") : `<p class="tv-empty">Belum ada kejadian.</p>`}
+        ${live.length > 1 ? `<div class="tv-dots">${live.map((_, i) => `<i class="${i === tvIdx % live.length ? "on" : ""}"></i>`).join("")}</div>` : ""}</section>${tvSponsors}</div>`;
+  }
+
+  if (next) {
+    const ko = toDate(next.kickoff)?.getTime();
+    const panes = tvPaneList(next), feed = panes.length ? panes[tvPane % panes.length]() : "";
+    return `<div class="tv tv-next">${tvTop(`Laga berikutnya · ${matchLabel(next)}`)}
+      <section class="tv-main">${tvTeam(next, "A")}
+        <div class="tv-mid"><div class="tv-score vs">vs</div>
+          <div class="tv-clock">${ko ? `<span data-tvcount="${ko}">${tvCountText(ko)}</span>` : ""}</div>
+          <div class="tv-note">${next.kickoff ? `${esc(dayLong(next.kickoff))}, ${esc(timeStr(next.kickoff))} WIB` : "Waktu akan ditentukan"}</div></div>
+        ${tvTeam(next, "B")}</section>
+      <section class="tv-feed">${feed}${tvDots(panes.length)}</section>${tvSponsors}</div>`;
+  }
+
+  const ip = tvPaneList(null), ifeed = ip.length ? ip[tvPane % ip.length]() : "";
+  return `<div class="tv tv-idle">${tvTop("")}<section class="tv-main tv-solo"><div><h1>${esc(TOURNAMENT.name)}</h1>
+    <p class="tv-note">${last ? `Hasil terakhir: ${esc(sideName(last, "A"))} ${scoreText(last)} ${esc(sideName(last, "B"))}` : `${dateRange}, ${esc(TOURNAMENT.venue)}`}</p></div></section><section class="tv-feed">${ifeed}${tvDots(ip.length)}</section>${tvSponsors}</div>`;
+}
+
+// jam dinding, hitung mundur, dan putar laga live (tanpa render ulang)
+const tvCountText = (ko) => {
+  const s = Math.floor((ko - nowMs()) / 1000);
+  if (s <= 0) return "Segera dimulai";
+  const h = Math.floor(s / 3600), mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0"), ss = String(s % 60).padStart(2, "0");
+  if (h >= 24) return `${Math.floor(h / 24)} hari ${String(h % 24).padStart(2, "0")}:${mm}:${ss}`;
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+};
+setInterval(() => {
+  document.querySelectorAll("[data-tvcount]").forEach((el) => { el.textContent = tvCountText(Number(el.dataset.tvcount)); });
+}, 1000);
+setInterval(() => {
+  if (route().name !== "tv" || !isReady()) return;
+  const liveN = state.matches.filter((m) => m.status === "live").length;
+  if (liveN > 1) { tvIdx++; lastHtml = ""; render(); }
+  else if (!liveN) { tvPane++; lastHtml = ""; render(); } // tanpa laga live: ganti bagian bawah layar
+}, 12000);
+
+// layar tidak boleh mati saat dipakai sebagai papan skor; klik dua kali atau tekan F = layar penuh
+let wakeLock = null;
+async function tvWake(on) {
+  try {
+    if (on && !wakeLock && "wakeLock" in navigator) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); }
+    else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch { wakeLock = null; }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && route().name === "tv") tvWake(true); });
+const tvFull = () => { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.(); };
+document.addEventListener("dblclick", () => { if (route().name === "tv") tvFull(); });
+document.addEventListener("keydown", (e) => { if ((e.key === "f" || e.key === "F") && route().name === "tv" && !e.ctrlKey && !e.metaKey) tvFull(); });
+
 // Jam LIVE bergerak tiap detik tanpa render ulang
 setInterval(() => {
   document.querySelectorAll("[data-clock]").forEach((el) => {
@@ -736,3 +860,5 @@ syncServerTime().then(() => { lastHtml = ""; render(); });
 setInterval(syncServerTime, 5 * 60 * 1000);
 startStore();
 render();
+
+tickRtClocks();

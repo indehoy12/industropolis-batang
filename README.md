@@ -162,8 +162,15 @@ Satu baris = satu orang, kolom: **Tim, Grup, Peran, No, Nama**, dan **Kapten** (
 - **Data contoh 16 tim**: `public/templates/data-16-tim-ifl-2026.xlsx` (dan `.csv`). Nama tim dan pemain fiktif; ganti sebelum impor.
 - **Jadwal 31 laga**: `public/templates/jadwal-ifl-2026.txt` (tempel di Admin → Pertandingan → Tambah pertandingan → Tempel banyak; impor dulu data 16 tim) dan `.xlsx` untuk dibaca/dicetak. Waktu yang belum ditentukan ditulis `TBD` (contoh: final) dan tampil sebagai "Waktu akan ditentukan"; jamnya bisa diisi nanti lewat Kelola laga.
 
-## Kapten tim
-- Kapten ditandai badge **C** (lingkaran oranye) di samping nama pemain: daftar tim & line up di website, serta daftar pemain, editor line up, dan papan kejadian di admin.
-- Satu kapten per tim. Menetapkan kapten baru otomatis mencabut kapten lama di tim itu.
-- Cara mengatur: Admin → Tim & Pemain → ketuk tim → **Tambah pemain** atau **Ubah** pemain → centang **Kapten (C)**. Lewat **Tempel banyak pemain** tambahkan kata `c` atau `kapten` (mis. `7, Andi, c`). Lewat impor Excel/CSV pakai kolom **Kapten**.
-- Disimpan di dokumen pemain sebagai `isCaptain` (true/false). Tidak perlu mengubah `firestore.rules`.
+## Layar TV / proyektor
+Buka `https://alamatsitus/#/tv` di laptop yang tersambung ke TV, lalu **klik dua kali** atau tekan **F** untuk layar penuh.
+- Saat ada laga live: skor besar, jam laga, status babak, dan 4 kejadian terbaru. Bila ada beberapa laga live, bergantian tiap 12 detik.
+- Saat tidak ada laga live: laga berikutnya dengan hitung mundur dan klasemen grupnya (atau hasil terakhir untuk babak gugur).
+- **Penyelenggara**: bar putih di bagian bawah layar menampilkan tiga logo (Industropolis, Indonesia SEZ, Danantara) di semua tampilan TV. Memakai file yang sama dengan blok penyelenggara di beranda: `assets/logo-industropolis.png`, `assets/logo-sez.png`, `assets/logo-danantara.png`. Untuk mengganti, timpa file itu dengan nama yang sama (PNG latar transparan atau putih, lebar sekitar 840 px, rasio melebar), lalu push. Jumlah logo (3) diatur di `tvSponsors` pada `public/js/app.js`.
+- Layar dijaga tidak mati otomatis (Screen Wake Lock) selama halaman ini terbuka.
+- Saat tidak ada laga live (hitung mundur, atau semua laga selesai), **bagian bawah layar berganti tiap 12 detik**: Line up laga berikutnya (hanya bila kedua tim sudah diisi; inti, kiper di atas, plus cadangan), klasemen **tiap grup** (grup laga berikutnya lebih dulu), jadwal 5 laga berikutnya, 4 hasil terakhir, statistik (top scorer, top assist, kiper terbaik; hanya bila sudah ada gol atau assist), dan **3 banner** (`assets/banner-1.jpg` sampai `banner-3.jpg`, daftarnya `BANNERS` di `app.js`). Bagian yang datanya belum ada otomatis dilewati. Satu putaran sekitar 2 menit. Hitung mundur lebih dari 24 jam tampil sebagai "11 hari 08:59:43".
+
+## Kapten
+Admin → Tim & Pemain → ketuk tim → **Ubah** pemain (atau saat **Tambah pemain**) → centang **Kapten (C)**. Satu kapten per tim: memilih kapten baru otomatis melepas kapten lama. Tanda **C** tampil di daftar tim, line up di halaman laga, dan layar TV.
+Lewat **Tempel banyak pemain**, tambahkan kata `c` atau `kapten` (mis. `7, Andi, c`). Lewat impor Excel/CSV, pakai kolom **Kapten** (lihat bagian impor di atas). Bila file tidak punya kolom itu, kapten yang sudah diatur tidak berubah.
+Disimpan di dokumen pemain sebagai `isCaptain`; tidak perlu mengubah aturan Firestore untuk fitur ini.
