@@ -22,9 +22,8 @@ ifl-website/
    │   ├─ store.js       pengambilan data realtime
    │   └─ util.js        hitungan klasemen, statistik, jam laga
    └─ assets/            ← GAMBAR YANG BOLEH KAMU GANTI
-       ├─ ifl-emblem.png       logo IFL (header)
+       ├─ logo.png             logo IFL (header, favicon). Belum ada: taruh file Anda di sini
        ├─ bg-arena.jpg         background stadion
-       ├─ favicon.png          ikon tab browser
        ├─ logo-industropolis.png  logo penyelenggara
        ├─ logo-sez.png            logo penyelenggara
        └─ logo-danantara.png      logo penyelenggara

@@ -154,7 +154,7 @@ function boardItems(live, next) {
 function boardView(items) {
   if (!items.length) {
     return `<div class="board-in"><div class="board-idle">
-      <img src="assets/ifl-emblem.png" alt="">
+      <img src="assets/logo.png" alt="" onerror="this.remove()">
       <h1>${esc(TOURNAMENT.name)}</h1>
       <p>${dateRange}, ${esc(TOURNAMENT.venue)}. Skor langsung, jadwal, klasemen, dan statistik pemain ada di halaman ini.</p>
       <div class="acts"><a class="board-link" href="#/jadwal">Lihat jadwal</a><a class="board-link ghost" href="#/klasemen">Klasemen</a></div>

@@ -198,7 +198,7 @@ function route() {
 
 // ---------- Tampilan ----------
 function loginView() {
-  return `<div class="login"><img src="../assets/ifl-emblem.png" alt="IFL">
+  return `<div class="login"><img src="../assets/logo.png" alt="IFL" onerror="this.remove()">
     <h2 class="a" style="text-align:center">Login panitia</h2>
     <form data-form="login">
       <label>Email</label><input type="email" name="email" autocomplete="username" required>
@@ -225,7 +225,7 @@ function topBar() {
   const tree = NAV.map((g) => `<div class="side-group ${g === cur ? "cur" : ""}"><div class="side-title">${esc(g.title)} ${dot(g)}</div>
       <div class="side-sub">${g.items.map(([k, l]) => `<a class="${k === key ? "on" : ""}" href="#${k}" ${k === key ? 'aria-current="page"' : ""}>${l}</a>`).join("")}</div></div>`).join("");
   return `<aside class="side" id="side">
-    <div class="side-brand"><img src="../assets/ifl-emblem.png" alt=""><div><b>Admin IFL</b><small>Panel panitia 2026</small></div></div>
+    <div class="side-brand"><img src="../assets/logo.png" alt="" onerror="this.remove()"><div><b>Admin IFL</b><small>Panel panitia 2026</small></div></div>
     <nav class="side-tree" aria-label="Menu admin">${tree}</nav>
     <div class="side-foot">
       <a class="side-link" href="../" target="_blank" rel="noopener">Lihat website publik ↗</a>
@@ -378,7 +378,7 @@ function lineupEditor(m) {
       }).join("") || `<p class="hint">Belum ada pemain di tim ini.</p>`}</div></div>`;
   };
   const probs = draftProblems(m, d);
-  return `<p class="hint">Ketuk pemain: sekali = Inti, dua kali = Cadangan, tiga kali = batal. Inti harus 5 pemain dan ada kiper.</p>
+  return `<p class="hint">Ketuk pemain: sekali = Inti, dua kali = Cadangan, tiga kali = batal. Inti harus 5 pemain dan wajib ada kiper (slot inti terakhir hanya bisa diisi kiper bila belum ada).</p>
     <div class="lu-cols">${col("A")}${col("B")}</div>
     ${probs.length ? `<p class="problems">${probs.map(esc).join(" · ")}</p>` : `<p class="okline">Susunan inti lengkap.</p>`}
     <div class="btns"><button class="btn orange" data-act="lu-save" data-id="${esc(m.id)}" ${d.dirty ? "" : "disabled"}>Simpan line up</button>
@@ -954,6 +954,15 @@ const actions = {
     const m = curMatch(); if (!m) return;
     const d = draftOf(m), side = el.dataset.side, cur = d[side][id] || "";
     const next = cur === "" ? "S" : cur === "S" ? "B" : "";
+    if (next === "S") {
+      // slot inti terakhir wajib kiper: kalau 4 inti belum ada kiper, pemain biasa tidak boleh mengisinya
+      const team = playersOf(side === "A" ? m.teamA : m.teamB);
+      const starters = team.filter((p) => d[side][p.id] === "S");
+      const me = team.find((p) => p.id === id);
+      if (starters.length === FUTSAL_STARTERS - 1 && !starters.some((p) => p.isGK) && !(me && me.isGK)) {
+        throw new Error("Slot inti terakhir harus kiper. Pilih kiper dulu sebagai inti.");
+      }
+    }
     if (next === "S" && Object.values(d[side]).filter((v) => v === "S").length >= FUTSAL_STARTERS) {
       // inti penuh: lompat ke cadangan
       d[side][id] = "B";
@@ -972,6 +981,11 @@ const actions = {
     };
     const A = build("A"), B = build("B");
     if (A.starters.length > FUTSAL_STARTERS || B.starters.length > FUTSAL_STARTERS) throw new Error(`Susunan inti maksimal ${FUTSAL_STARTERS} pemain per tim.`);
+    for (const [side, L] of [["A", A], ["B", B]]) {
+      if (L.starters.length === FUTSAL_STARTERS && !L.starters.some((pid) => state.playerById[pid]?.isGK)) {
+        throw new Error(`${sideName(m, side)}: susunan inti harus ada kiper (GK).`);
+      }
+    }
     // pemain yang sudah punya kejadian di laga ini tidak boleh dikeluarkan dari line up
     const inLu = new Set([...A.starters, ...A.subs, ...B.starters, ...B.subs]);
     const gone = state.events.filter((e) => e.matchId === id && [e.playerId, e.assistId].some((x) => x && !inLu.has(x)));
