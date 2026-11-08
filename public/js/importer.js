@@ -226,7 +226,7 @@ export function buildPlan(rows, existingTeams = [], existingPlayers = []) {
  * replace=true: pemain/official lama di tim yang ada di file dihapus bila tidak ada di file.
  */
 export function buildOps(plan, { existingPlayers = [], matches = [], replace = false, newId }) {
-  const ops = [];
+  const ops = [], removed = new Set();
   for (const t of plan.teams) {
     const teamId = t.existing ? t.existing.id : newId("teams");
     if (!t.existing) ops.push({ op: "set", col: "teams", id: teamId, data: { name: t.name, group: t.group } });
@@ -248,7 +248,21 @@ export function buildOps(plan, { existingPlayers = [], matches = [], replace = f
       if (ex) { keep.add(ex.id); ops.push({ op: "update", col: "players", id: ex.id, data }); }
       else ops.push({ op: "set", col: "players", id: newId("players"), data });
     }
-    if (replace) current.filter((c) => !keep.has(c.id)).forEach((c) => ops.push({ op: "delete", col: "players", id: c.id }));
+    if (replace) current.filter((c) => !keep.has(c.id)).forEach((c) => { ops.push({ op: "delete", col: "players", id: c.id }); removed.add(c.id); });
+  }
+  // pemain yang dihapus juga dibersihkan dari line up dan Man of the Match, supaya tidak ada ID yatim di data laga
+  if (removed.size) {
+    for (const m of matches) {
+      const patch = {};
+      for (const k of ["lineupA", "lineupB"]) {
+        const lu = m[k];
+        if (lu && [...(lu.starters || []), ...(lu.subs || [])].some((id) => removed.has(id))) {
+          patch[k] = { starters: (lu.starters || []).filter((id) => !removed.has(id)), subs: (lu.subs || []).filter((id) => !removed.has(id)) };
+        }
+      }
+      if (m.motmId && removed.has(m.motmId)) patch.motmId = null;
+      if (Object.keys(patch).length) ops.push({ op: "update", col: "matches", id: m.id, data: patch });
+    }
   }
   return ops;
 }

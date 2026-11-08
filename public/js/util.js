@@ -147,15 +147,24 @@ export function elapsedSec(match, now = nowMs()) {
 /** Cap waktu kejadian pada babak p setelah ps detik. Lewat batas babak = tambahan waktu (10+1'). */
 export function stampAt(m, p, ps = 0) {
   const c = cfgOf(m), off = offsetMin(m, c, p);
-  if (!isPlayPhase(p)) return { p, ps: 0, sec: off * 60, minute: off, extra: 0 };
+  if (!isPlayPhase(p)) return { p, ps: 0, sec: off * 60, minute: off, extra: 0, pm: 0 };
   const lim = limitSec(c, p);
-  if (ps >= lim) return { p, ps, sec: off * 60 + ps, minute: off + lim / 60, extra: Math.floor((ps - lim) / 60) + 1 };
-  return { p, ps, sec: off * 60 + ps, minute: off + Math.floor(ps / 60) + 1, extra: 0 };
+  // pm = menit di dalam babak ini (dipakai perpanjangan waktu: ET1 3', ET2 2')
+  if (ps >= lim) return { p, ps, sec: off * 60 + ps, minute: off + lim / 60, extra: Math.floor((ps - lim) / 60) + 1, pm: lim / 60 };
+  return { p, ps, sec: off * 60 + ps, minute: off + Math.floor(ps / 60) + 1, extra: 0, pm: Math.floor(ps / 60) + 1 };
 }
 export const stampNow = (m, now = nowMs()) => { const p = phaseOf(m) || "h1"; return stampAt(m, p, isPlayPhase(p) ? elapsedSec(m, now) : 0); };
 export const fmtMinute = (minute, extra) => (extra ? `${minute}+${extra}'` : `${minute}'`);
-export const eventMinute = (e) => fmtMinute(e.minute ?? 0, e.extra || 0);
-export const minuteNow = (m, now) => { const s = stampNow(m, now); return fmtMinute(s.minute, s.extra); };
+const isET = (p) => p === "et1" || p === "et2";
+const ET_TAG = { et1: "ET1", et2: "ET2" };
+/** Menit tampil. Babak 1-2 berlanjut (11', 12', ...); perpanjangan waktu dihitung per babak: "ET1 3'", "ET2 2'", "ET1 5+1'". */
+export function fmtStamp(s, withTag = true) {
+  if (!isET(s.p)) return fmtMinute(s.minute ?? 0, s.extra || 0);
+  const t = fmtMinute(s.pm ?? (Math.floor((s.ps || 0) / 60) + 1), s.extra || 0);
+  return withTag ? `${ET_TAG[s.p]} ${t}` : t;
+}
+export const eventMinute = (e) => fmtStamp(e);
+export const minuteNow = (m, now) => fmtStamp(stampNow(m, now));
 /** Urutan kejadian: per babak lalu detik di babak itu (aman untuk tambahan waktu). Data lama memakai sec/minute. */
 const eventKey = (e) => (e.p && e.p in RANK ? RANK[e.p] * 1e6 + (e.ps || 0) : e.sec ?? (e.minute ?? 0) * 60);
 export const eventCmp = (a, b) => eventKey(a) - eventKey(b) || (a.ts ?? 0) - (b.ts ?? 0);
@@ -177,10 +186,10 @@ export function livePill(m, now = nowMs()) {
   if (p === "pen") return { text: "ADU PENALTI", halted: false };
   if (m.pause) return { text: `JEDA · ${m.pause.label}`, halted: true };
   if (!c.running) return { text: (c.baseSec || 0) > 0 ? "JEDA" : `${PHASE_SHORT[p] || "LIVE"} · SIAP`, halted: true };
-  return { text: `${PHASE_SHORT[p] || "LIVE"} · ${minuteNow(m, now)}`, halted: false };
+  return { text: `${PHASE_SHORT[p] || "LIVE"} · ${fmtStamp(stampNow(m, now), false)}`, halted: false };
 }
 /** Status sebuah laga yang sudah selesai: "FT" atau "FT · ET". */
-export const ftText = (m) => (m.etPlayed ? "FT · ET" : "FT");
+export const ftText = (m) => (m.wo ? "WO" : m.etPlayed ? "FT · ET" : "FT");
 /** Pengingat tambahan waktu yang diumumkan admin (hanya saat babak main). */
 export const addedText = (m) => (m.status === "live" && isPlayPhase(phaseOf(m)) && (m.addedMin || 0) > 0 ? `Tambahan waktu +${m.addedMin}'` : "");
 /** Jam berhenti dan belum pernah jalan di babak ini (mis. ET1 menunggu peluit). */
@@ -212,12 +221,47 @@ export function phaseActions(m) {
   }
 }
 
+// ---------- Adu penalti ----------
+// match.penKicks = [{ s: "A"|"B", g: true|false }, ...] (urutan tendangan). Disimpan di dokumen laga, BUKAN di events,
+// jadi tidak masuk top scorer, skor laga, maupun kebobolan kiper. match.penWinner diisi otomatis dari hasil ini.
+export const PEN_ROUNDS = 5;
+export function shootout(m) {
+  const kicks = Array.isArray(m?.penKicks) ? m.penKicks.filter((k) => k && (k.s === "A" || k.s === "B")) : [];
+  const taken = { A: 0, B: 0 }, goals = { A: 0, B: 0 };
+  for (const k of kicks) { taken[k.s]++; if (k.g) goals[k.s]++; }
+  const rem = (n) => Math.max(0, PEN_ROUNDS - n);
+  let winner = null;
+  if (taken.A >= PEN_ROUNDS && taken.B >= PEN_ROUNDS) {
+    // sudden death: hanya diputuskan setelah kedua tim menendang sama banyak
+    if (taken.A === taken.B && goals.A !== goals.B) winner = goals.A > goals.B ? "A" : "B";
+  } else if (goals.A > goals.B + rem(taken.B)) winner = "A";
+  else if (goals.B > goals.A + rem(taken.A)) winner = "B";
+  const next = taken.A === taken.B ? null : taken.A < taken.B ? "A" : "B";
+  return { kicks, taken, goals, winner, next, any: kicks.length > 0 };
+}
+/** "3–4" (urutan Tim A–Tim B); winnerFirst=true menaruh skor pemenang di depan. Kosong bila tidak ada tendangan tercatat. */
+export function penScoreText(m, winnerFirst = false) {
+  const so = shootout(m);
+  if (!so.any) return "";
+  const a = so.goals.A, b = so.goals.B;
+  return winnerFirst && (m.penWinner === "B" || (!m.penWinner && b > a)) ? `${b}–${a}` : `${a}–${b}`;
+}
+/** Titik hasil tendangan satu tim (HTML): ● gol, ✕ gagal, ○ belum menendang (minimal 5). */
+export function penDots(m, side) {
+  const ks = shootout(m).kicks.filter((k) => k.s === side);
+  const dots = ks.map((k) => `<i class="pk ${k.g ? "g" : "m"}" title="${k.g ? "Gol" : "Gagal"}">${k.g ? "●" : "✕"}</i>`);
+  while (dots.length < PEN_ROUNDS) dots.push(`<i class="pk">○</i>`);
+  return dots.join("");
+}
+
 // ---------- Line up ----------
 export const FUTSAL_STARTERS = 5;
 /** Daftar masalah line up satu sisi; kosong berarti siap main. */
 export function lineupProblems(match, side, players) {
   const lu = match["lineup" + side] || {};
-  const starters = lu.starters || [];
+  const teamId = side === "A" ? match.teamA : match.teamB;
+  // hanya pemain yang benar-benar ada dan anggota tim ini (menjaga dari line up basi setelah tim diganti / pemain dihapus)
+  const starters = (lu.starters || []).filter((id) => players.some((p) => p.id === id && p.teamId === teamId));
   const out = [];
   if (starters.length !== FUTSAL_STARTERS) out.push(`Susunan inti harus ${FUTSAL_STARTERS} pemain (baru ${starters.length})`);
   else if (!starters.some((id) => players.find((p) => p.id === id)?.isGK)) out.push("Susunan inti belum ada kiper");
@@ -238,15 +282,19 @@ export const lineupIds = (match, side) => {
 
 // ---------- Klasemen ----------
 function blank(team) {
-  return { teamId: team.id, name: team.name, group: team.group, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+  return { teamId: team.id, name: team.name, group: team.group, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, fp: 0, tb: team.tbRank ?? null, tied: false, tieId: null };
 }
+// Poin kartu (fair play) untuk pemisah klasemen: makin kecil makin baik.
+// Kuning 1, merah langsung 3. Merah dari kuning kedua hanya +1 karena dua kuningnya sudah dihitung (total 3).
+export const CARD_POINTS = { yellow: 1, red: 3, secondYellowRed: 1 };
+const cardPts = (e) => (e.type === "yellow" ? CARD_POINTS.yellow : e.type === "red" ? (e.second ? CARD_POINTS.secondYellowRed : CARD_POINTS.red) : 0);
 function applyResult(row, gf, ga) {
   row.p++; row.gf += gf; row.ga += ga;
   if (gf > ga) { row.w++; row.pts += 3; } else if (gf === ga) { row.d++; row.pts += 1; } else row.l++;
 }
 
 /** Mengembalikan { A: [rows...], B: [...] }, sudah terurut. */
-export function computeStandings(teams, matches) {
+export function computeStandings(teams, matches, events = []) {
   const groups = {};
   const byId = {};
   for (const t of teams) {
@@ -260,12 +308,21 @@ export function computeStandings(teams, matches) {
     applyResult(byId[m.teamA], m.scoreA || 0, m.scoreB || 0);
     applyResult(byId[m.teamB], m.scoreB || 0, m.scoreA || 0);
   }
+  // kartu hanya dihitung dari laga grup yang sudah selesai
+  const doneIds = new Set(done.map((m) => m.id));
+  for (const e of events) {
+    if (!doneIds.has(e.matchId) || !byId[e.teamId]) continue;
+    byId[e.teamId].fp += cardPts(e);
+  }
   for (const g of Object.keys(groups)) groups[g] = sortGroup(groups[g], done);
   return groups;
 }
 
 function sortGroup(rows, doneMatches) {
-  // 1) poin, 2) gol memasukkan (GM), 3) head to head, 4) nama
+  // Urutan: 1) poin, 2) gol memasukkan (GM), 3) head to head (poin, selisih gol, gol),
+  // 4) selisih gol keseluruhan (GM - GK), 5) poin kartu (kuning 1, merah 3; lebih sedikit lebih baik),
+  // 6) urutan manual hasil adu penalti/undian (field tbRank di tim).
+  // Bila semuanya masih sama, tim ditandai "tied" (seri penuh): tidak ditentukan otomatis, panitia mengisi manual.
   const sorted = [...rows].sort((a, b) => b.pts - a.pts || b.gf - a.gf || a.name.localeCompare(b.name, "id"));
   const out = [];
   let i = 0;
@@ -283,10 +340,22 @@ function sortGroup(rows, doneMatches) {
         a.gf += m.scoreA; a.ga += m.scoreB; b.gf += m.scoreB; b.ga += m.scoreA;
         if (m.scoreA > m.scoreB) a.pts += 3; else if (m.scoreA < m.scoreB) b.pts += 3; else { a.pts++; b.pts++; }
       }
-      tied.sort((x, y) => {
+      const cmp = (x, y) => {
         const hx = h2h[x.teamId], hy = h2h[y.teamId];
-        return hy.pts - hx.pts || (hy.gf - hy.ga) - (hx.gf - hx.ga) || hy.gf - hx.gf || x.name.localeCompare(y.name, "id");
-      });
+        return hy.pts - hx.pts || (hy.gf - hy.ga) - (hx.gf - hx.ga) || hy.gf - hx.gf
+          || (y.gf - y.ga) - (x.gf - x.ga)
+          || x.fp - y.fp
+          || (x.tb ?? 99) - (y.tb ?? 99);
+      };
+      tied.sort((x, y) => cmp(x, y) || x.name.localeCompare(y.name, "id"));
+      // tandai blok tim yang benar-benar seri penuh (urutan alfabet hanya tampilan, bukan penentu)
+      let k = 0;
+      while (k < tied.length) {
+        let l = k + 1;
+        while (l < tied.length && cmp(tied[k], tied[l]) === 0) l++;
+        if (l - k > 1) for (let q = k; q < l; q++) { tied[q].tied = true; tied[q].tieId = `${tied[k].group}:${tied[k].teamId}`; }
+        k = l;
+      }
     }
     out.push(...tied);
     i = j;
@@ -326,7 +395,7 @@ export function computeKeeperStats(players, matches, teams = [], events = []) {
   const gks = {};
   for (const p of players) if (p.isGK && p.role !== "official") gks[p.id] = { ...p, played: 0, cleanSheets: 0, conceded: 0, goals: 0, assists: 0, yellow: 0, red: 0 };
   for (const m of matches) {
-    if (m.status !== "ft") continue;
+    if (m.status !== "ft" || m.wo) continue; // WO: tidak ada permainan, tidak masuk statistik kiper
     for (const side of ["A", "B"]) {
       const lineup = m["lineup" + side] || {};
       const conceded = side === "A" ? m.scoreB || 0 : m.scoreA || 0;
@@ -345,7 +414,7 @@ export function computeKeeperStats(players, matches, teams = [], events = []) {
     if (e.type === "red" && gks[e.playerId]) gks[e.playerId].red++;
   }
   return Object.values(gks)
-    .map((g) => ({ ...g, avg: g.played ? g.conceded / g.played : 0, progress: teamProgress(g.teamId, teams, matches) }))
+    .map((g) => ({ ...g, avg: g.played ? g.conceded / g.played : 0, progress: teamProgress(g.teamId, teams, matches, events) }))
     .filter((g) => g.played > 0)
     .sort((a, b) => b.cleanSheets - a.cleanSheets || a.avg - b.avg || b.played - a.played || a.name.localeCompare(b.name, "id"));
 }
@@ -355,14 +424,14 @@ export function keeperDetail(playerId, players, matches, teams, events) {
   const hit = all.find((k) => k.id === playerId);
   if (hit) return { ...hit, rank: all.indexOf(hit) + 1, total: all.length };
   const p = players.find((x) => x.id === playerId);
-  return p ? { ...p, played: 0, cleanSheets: 0, conceded: 0, avg: 0, goals: 0, assists: 0, yellow: 0, red: 0, progress: teamProgress(p.teamId, teams, matches), rank: null, total: all.length } : null;
+  return p ? { ...p, played: 0, cleanSheets: 0, conceded: 0, avg: 0, goals: 0, assists: 0, yellow: 0, red: 0, progress: teamProgress(p.teamId, teams, matches, events), rank: null, total: all.length } : null;
 }
 
 /**
  * Sampai mana sebuah tim: { label, out } dengan label seperti "Gugur di Perempat Final", "Juara", "Masih bertanding".
  * Grup baru dianggap gugur setelah semua laga grupnya selesai dan tim tidak masuk 2 besar.
  */
-export function teamProgress(teamId, teams, matches) {
+export function teamProgress(teamId, teams, matches, events = []) {
   const team = teams.find((t) => t.id === teamId);
   const mine = matches.filter((m) => m.teamA === teamId || m.teamB === teamId);
   const sideOf = (m) => (m.teamA === teamId ? "A" : "B");
@@ -375,9 +444,12 @@ export function teamProgress(teamId, teams, matches) {
   if (sf) { const r = result(sf); return r === "W" ? { label: "Lolos ke final", out: false } : r === "L" ? { label: "Gugur di Semi Final", out: true } : { label: "Di semi final", out: false }; }
   if (qf) { const r = result(qf); return r === "W" ? { label: "Lolos ke semi final", out: false } : r === "L" ? { label: "Gugur di Perempat Final", out: true } : { label: "Di perempat final", out: false }; }
   if (!team || !team.group) return { label: "–", out: false };
-  if (!groupDone(matches, team.group)) return { label: "Masih di babak grup", out: false };
-  const rows = computeStandings(teams, matches)[team.group] || [];
-  return rows.findIndex((r) => r.teamId === teamId) < QUALIFY_PER_GROUP
+  if (!groupDone(matches, team.group, teams)) return { label: "Masih di babak grup", out: false };
+  const rows = computeStandings(teams, matches, events)[team.group] || [];
+  const idx = rows.findIndex((r) => r.teamId === teamId);
+  if (rows[idx]?.tied && rows.some((r, i) => r.tieId === rows[idx].tieId && i < QUALIFY_PER_GROUP) && rows.some((r, i) => r.tieId === rows[idx].tieId && i >= QUALIFY_PER_GROUP))
+    return { label: "Menunggu adu penalti", out: false };
+  return idx < QUALIFY_PER_GROUP
     ? { label: "Lolos ke perempat final", out: false }
     : { label: "Gugur di Babak Grup", out: true };
 }
@@ -432,10 +504,24 @@ const teamOfSide = (m, s) => (s === "A" ? m.teamA : s === "B" ? m.teamB : null) 
 
 const koSorted = (matches, stage) =>
   matches.filter((m) => m.stage === stage).sort((a, b) => sortByKickoff(a, b) || (a.createdAt || 0) - (b.createdAt || 0));
+/** Tempatkan laga ke slot bagan: field `slot` (1..n) dipakai bila ada; laga tanpa slot mengisi sisanya menurut urutan jam kickoff. */
+function placeSlots(list, n) {
+  const out = Array(n).fill(null), rest = [];
+  for (const m of list) {
+    const s = Number(m.slot);
+    if (Number.isInteger(s) && s >= 1 && s <= n && !out[s - 1]) out[s - 1] = m; else rest.push(m);
+  }
+  for (let i = 0; i < n && rest.length; i++) if (!out[i]) out[i] = rest.shift();
+  return out;
+}
 
-function groupDone(matches, g) {
+// Grup dianggap selesai bila SEMUA pertemuan round-robin sudah ada dan berstatus selesai
+// (n tim -> n x (n-1) / 2 laga). Jadwal yang baru separuh dibuat tidak dianggap selesai.
+export function groupDone(matches, g, teams) {
+  const n = teams.filter((t) => t.group === g).length;
+  if (n < 2) return false;
   const list = matches.filter((m) => (m.stage === "group" || !m.stage) && m.group === g);
-  return list.length > 0 && list.every((m) => m.status === "ft");
+  return list.length >= (n * (n - 1)) / 2 && list.every((m) => m.status === "ft");
 }
 
 /**
@@ -443,11 +529,11 @@ function groupDone(matches, g) {
  * (lalu urutan input) pada fase yang sama. Tim yang sudah pasti ikut terisi otomatis
  * di tampilan walau admin belum mengisinya di data laga.
  */
-export function computeBracket(teams, matches) {
-  const standings = computeStandings(teams, matches);
-  const seedTeam = (seed) => (groupDone(matches, seed[0]) ? standings[seed[0]]?.[seed[1] - 1]?.teamId || null : null);
-  const qf = koSorted(matches, "qf").slice(0, 4);
-  const sf = koSorted(matches, "sf").slice(0, 2);
+export function computeBracket(teams, matches, events = []) {
+  const standings = computeStandings(teams, matches, events);
+  const seedTeam = (seed) => (groupDone(matches, seed[0], teams) ? (standings[seed[0]]?.[seed[1] - 1]?.tied ? null : standings[seed[0]]?.[seed[1] - 1]?.teamId) || null : null);
+  const qf = placeSlots(koSorted(matches, "qf"), 4);
+  const sf = placeSlots(koSorted(matches, "sf"), 2);
   const fin = koSorted(matches, "final")[0] || null;
   const third = koSorted(matches, "third")[0] || null;
 
@@ -469,17 +555,32 @@ export function computeBracket(teams, matches) {
   };
 }
 
+/** Grup selesai yang masih seri penuh di posisi yang menentukan lolos/juara: perlu adu penalti, diinput manual. */
+export function unresolvedTies(teams, matches, events = []) {
+  const st = computeStandings(teams, matches, events), out = [];
+  for (const g of Object.keys(st)) {
+    if (!groupDone(matches, g, teams)) continue;
+    const ids = [...new Set(st[g].filter((r) => r.tied).map((r) => r.tieId))];
+    for (const id of ids) {
+      const rows = st[g].filter((r) => r.tieId === id);
+      if (st[g].some((r, i) => r.tieId === id && i < QUALIFY_PER_GROUP)) out.push({ group: g, rows });
+    }
+  }
+  return out;
+}
+
 /** Daftar pengisian tim yang bisa dilakukan sekarang (hanya laga yang belum mulai). */
-export function planKnockout(teams, matches) {
-  const b = computeBracket(teams, matches);
+export function planKnockout(teams, matches, events = []) {
+  const b = computeBracket(teams, matches, events);
   const slots = [...b.qf, ...b.sf, b.final, ...(b.third ? [b.third] : [])];
   const out = [];
   for (const s of slots) {
     const m = s.match;
     if (!m || m.status !== "scheduled") continue;
     const patch = {};
-    if (s.teamA && s.teamA !== m.teamA) patch.teamA = s.teamA;
-    if (s.teamB && s.teamB !== m.teamB) patch.teamB = s.teamB;
+    const empty = () => ({ starters: [], subs: [] });
+    if (s.teamA && s.teamA !== m.teamA) { patch.teamA = s.teamA; if (m.teamA) patch.lineupA = empty(); }
+    if (s.teamB && s.teamB !== m.teamB) { patch.teamB = s.teamB; if (m.teamB) patch.lineupB = empty(); }
     if (Object.keys(patch).length) out.push({ id: m.id, name: s.name, patch });
   }
   return out;

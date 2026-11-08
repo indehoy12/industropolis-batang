@@ -43,7 +43,7 @@ Tidak lewat folder. Buka **Admin → Tim & Pemain → Daftar tim → ketuk tim �
 Gambar otomatis dikecilkan dan langsung tampil di website (klasemen, daftar tim, detail laga) tanpa deploy ulang.
 Tim yang belum punya logo menampilkan lingkaran berisi singkatan nama tim.
 
-**Pustaka logo klub (14 logo)**: file ada di `public/assets/logos/` (PNG transparan, 512 x 512 px, standar tetap). Di halaman tim, buka **Logo tim → Pilih dari pustaka logo klub** lalu ketuk logonya.
+**Pustaka logo klub (14 logo)**: file ada di `public/assets/logos/` (PNG transparan, 192 x 192 px, sekitar 2–18 KB per logo). Nama file jangan diganti: alamatnya tersimpan di data tim. Bila menambah logo baru, kecilkan dulu ke sekitar 192 px agar halaman klasemen tetap ringan. Di halaman tim, buka **Logo tim → Pilih dari pustaka logo klub** lalu ketuk logonya.
 
 ## Langkah pasang (urut)
 
@@ -91,37 +91,55 @@ Admin → Pertandingan → Semua pertandingan → **Kelola** laga. Urutannya sen
 | Istirahat (hitung mundur) | Mulai babak 2 |
 | Babak 2 | Selesai (FT). Di babak gugur yang seri: **Lanjut perpanjangan waktu** atau **Langsung adu penalti** |
 | ET1, istirahat ET, ET2 | Akhiri ET1, Mulai ET2, lalu Selesai (FT) (atau Lanjut adu penalti bila masih seri) |
-| Adu penalti | Pilih pemenang, lalu Selesai (FT) |
+| Adu penalti | Catat tiap tendangan (Gol / Gagal), pemenang terisi otomatis, lalu Selesai (FT) |
 
-- **Jam per babak mulai dari 0.** Skor, gol, dan kartu berlanjut. Menit kejadian berurutan: dengan 2 × 10 menit, babak 2 dihitung 11', 12', ... (babak gugur 2 × 15: 16', 17', ...; ET1 mulai 31', ET2 36').
+- **Jam per babak mulai dari 0.** Skor, gol, dan kartu berlanjut. Menit kejadian babak 1 dan 2 berurutan: dengan 2 × 10 menit, babak 2 dihitung 11', 12', ... (babak gugur 2 × 15: 16', 17', ...). **Perpanjangan waktu dihitung per babak**: tampil `ET1 3'`, `ET2 2'`, dan tambahan waktu `ET1 5+1'`.
 - **Tambahan waktu**: jam tidak berhenti paksa di akhir babak. Setelah batas tampil `10+1'`, `10+2'`, dan admin menekan Akhiri saat wasit meniup peluit. Admin juga bisa mengatur pengingat "Tambahan waktu +2'" di layar penonton (tombol − / +).
 - **Jeda darurat**: alasan Cedera, Gangguan lapangan, Time-out (pilih tim), atau Lainnya (keterangan bebas). Jam berhenti dan penonton melihat misalnya "JEDA · Cedera"; tercatat juga di jalannya laga. Time-out mengikuti aturan futsal (1 per tim per babak, tidak ada di perpanjangan waktu); pelanggarannya hanya peringatan, tidak memblokir.
 - **Durasi** diatur di Admin → Pengaturan → Durasi pertandingan. Bawaan: grup 2 × 10 menit (bisa diubah ke 1 babak non-stop), gugur 2 × 15, perpanjangan 2 × 5, istirahat 5 menit, istirahat ET 1 menit. Nilai dibekukan saat laga dimulai.
 - **Kartu**: kuning kedua pada pemain yang sama otomatis menjadi merah. Pemain yang sudah merah tidak bisa dikartu lagi. Gol tidak bisa dicatat saat istirahat atau adu penalti; gol adu penalti tidak dicatat (skor tetap seri, pemenang dipilih manual).
 - Pelanggaran akumulatif (kartu 6 pelanggaran) dan pergantian pemain tidak dicatat.
 
+### Adu penalti (babak gugur yang masih seri setelah waktu normal / perpanjangan)
+1. Tekan **Lanjut adu penalti** (dari ET2) atau **Langsung adu penalti** (dari babak 2). Papan adu penalti muncul di halaman Kelola laga.
+2. Catat tiap tendangan: **Gol** atau **Gagal** di bawah nama tim yang menendang. Tombol hanya aktif untuk tim yang gilirannya (tim yang menendang lebih sedikit).
+3. **Pemenang dihitung otomatis**: 5 tendangan per tim, berhenti lebih awal bila salah satu tim sudah tidak terkejar, lalu sudden death bila masih sama setelah 5 tendangan. Tombol Selesai (FT) aktif setelah pemenang pasti.
+4. Salah catat: **Batalkan tendangan terakhir**. Cadangan bila perlu: pilih pemenang manual (ini mengosongkan tendangan yang sudah dicatat).
+5. Tendangan adu penalti **tidak dicatat sebagai gol**: tidak masuk top scorer, skor laga tetap seri (mis. `2 – 2`, ditulis `(pen 4–3)`), dan tidak menambah kebobolan kiper. Di website tampil sebagai kartu Adu penalti dengan titik hasil tiap tendangan.
+6. Gol penalti **di dalam permainan** (tombol Gol penalti) tetap dihitung sebagai gol biasa dengan tanda **P**, jadi masuk top scorer dan skor laga.
+
+### Menang WO (tim lawan tidak hadir)
+Admin → Pertandingan → ketuk laga terjadwal → buka **Menang WO**. Pilih pemenang dan skor (bawaan 3 – 0), lalu Tetapkan. Laga langsung selesai tanpa line up, hasilnya masuk klasemen, tampil berlabel **WO**, dan tidak memengaruhi top scorer maupun statistik kiper. Salah tetapkan: buka laganya lalu **Buka kembali untuk koreksi** (WO dibatalkan, laga kembali Terjadwal).
+
 Skor selalu dihitung ulang dari daftar kejadian (bukan ditambah-kurangi), jadi tidak bisa menyimpang. "Koreksi skor" (misalnya menang WO) disimpan sebagai selisih, dan tetap berlaku bila ada gol baru.
 
 ## Aturan klasemen
-Menang 3, seri 1, kalah 0. Urutan: poin → gol memasukkan (GM) → head to head → nama tim.
+Menang 3, seri 1, kalah 0. Urutan: poin → gol memasukkan (GM) → head to head → selisih gol → poin kartu (kuning 1, merah 3; lebih sedikit lebih baik) → urutan manual panitia (hasil adu penalti/undian). Tim yang masih seri penuh ditandai `*` dan panitia mengisi urutannya di Admin → Pertandingan.
 Hanya laga **grup** berstatus FT yang dihitung. Yang lolos adalah 2 teratas tiap grup (mengikuti bagan 4 grup x 2 tim).
+
+## Kuota Firestore
+Setiap pengunjung membaca seluruh data (tim, pemain, laga, kejadian), kira-kira 500 dokumen per kunjungan. Paket gratis (Spark) dibatasi 50.000 baca per hari, sehingga bisa habis oleh sekitar 100 kunjungan dan situs menampilkan galat. Sebelum turnamen: (1) naikkan ke paket **Blaze** dan pasang **budget alert** di Google Cloud; (2) cache lokal browser sudah diaktifkan di `js/firebase.js` sehingga pengunjung yang kembali hanya membaca data yang berubah. Pantau di Firebase Console → Firestore → Usage.
 
 ## Catatan
 - **Kiper terbaik** dipilih manual oleh panitia di Pengaturan → Kiper terbaik: kartu kiper urut dari nilai terbaik, ketuk kartu untuk memilih, ketuk lagi untuk membatalkan. Di halaman Statistik tampil sebagai kartu penghargaan: main, clean sheet, kebobolan, rata-rata kebobolan, gol, assist, dan posisi akhir tim (mis. "Gugur di Perempat Final", "Juara"). Ada juga Peringkat kiper. Dihitung dari kiper di susunan inti laga selesai, termasuk gol di perpanjangan waktu tetapi tanpa adu penalti.
 - Jam laga memakai jam server (header `Date` dari situs sendiri), bukan jam HP masing-masing, jadi menit sama di semua perangkat. Disinkronkan tiap 5 menit.
+- Jangan deploy perubahan kode saat ada laga LIVE: file JS di-cache 5 menit, sehingga sebagian pengunjung bisa sesaat memakai `app.js` baru dengan `util.js` lama.
 - Nilai `firebaseConfig` di `public/js/firebase.js` memang boleh publik. Yang menjaga data adalah `firestore.rules`.
 
 ## Bagan babak gugur
 - Halaman **Bagan** di website menampilkan perempat final, semifinal, dan final, mengikuti urutan jam kickoff (QF1–QF4, SF1–SF2).
+- **Urutan laga bagan** diambil dari kolom **Urutan bagan** (slot) di form laga: QF1–QF4 dan SF1–SF2. Impor jadwal mengisinya otomatis menurut urutan baris. Laga tanpa slot memakai urutan jam kickoff, jadi mengubah jam tidak lagi menukar bagan bila slot sudah terisi.
 - Pasangan: QF1 Juara A–Runner-up B, QF2 Juara C–Runner-up D, QF3 Juara B–Runner-up A, QF4 Juara D–Runner-up C. SF1 = pemenang QF1–QF2, SF2 = pemenang QF3–QF4.
 - Buat dulu laga `qf` (4), `sf` (2), dan `final` (1) lewat Impor jadwal, tim boleh dikosongkan.
 - Setelah semua laga sebuah grup selesai (FT), Admin → Pertandingan menampilkan kartu **Babak gugur siap diisi**. Tekan **Isi pasangan otomatis**. Hal yang sama berlaku untuk semifinal dan final setelah laga sebelumnya selesai.
-- Laga babak gugur yang seri: pilih **Pemenang adu penalti** di halaman Kelola laga sebelum menekan Selesai (FT).
+- Laga babak gugur yang seri: lanjut ke adu penalti dan catat tendangan (lihat bagian Adu penalti). Pemenang otomatis lanjut ke babak berikutnya.
+- Setelah laga dimulai, **fase dan tim di form jadwal dikunci** (jam tetap bisa diubah). Mengganti tim di laga terjadwal otomatis mengosongkan line up tim yang diganti.
 
 ## Keamanan
 - Penulisan data hanya untuk UID admin (`firestore.rules`). Pasang aturan di Firebase, jangan biarkan Firestore dalam "test mode".
 - `netlify.toml` memasang Content-Security-Policy, anti-clickjacking, HSTS, dan melarang cache halaman admin. Setelah deploy, buka website + login admin sambil melihat Console browser; bila ada pesan "Refused to ... Content Security Policy", laporkan baris itu.
 - Di Google Cloud Console → APIs & Services → Credentials, batasi API key Firebase ke **HTTP referrers**: `localhost`, `*.netlify.app/*`, dan domain situs kalian.
+- Di Firebase Console → Authentication → Settings → User actions, nonaktifkan **pembuatan akun baru (sign-up)** bila opsinya ada. Kunci API itu publik, jadi tanpa ini orang luar bisa membuat akun (tetap tidak bisa menulis data karena aturan Firestore memakai UID admin).
 - Gunakan password admin yang panjang dan unik. Sebaiknya jadikan repositori GitHub **Private** (Netlify tetap bisa memakainya).
 
 ## Impor tim, pemain, dan official dari Excel / CSV

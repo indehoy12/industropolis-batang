@@ -8,9 +8,10 @@ import { parseFile, buildPlan, buildOps, LIMITS } from "./importer.js";
 import { LOGO_LIBRARY, logoPath } from "./logos.js";
 import {
   STAGES, esc, timeStr, dayShort, sortByKickoff, toLocalInput, fromLocalInput, elapsedSec, clockText,
-  planKnockout, computeBracket, finalScore, scoreFromEvents, matchReadiness, lineupIds, FUTSAL_STARTERS, nowMs, syncServerTime, ballSvg,
+  planKnockout, computeBracket, unresolvedTies, finalScore, scoreFromEvents, matchReadiness, lineupIds, FUTSAL_STARTERS, nowMs, syncServerTime, ballSvg,
   phaseOf, isPlayPhase, stampAt, stampNow, eventMinute, minuteNow, eventCmp, livePill, ftText, isReadyToStart, phaseActions,
   timingOf, cfgFor, isKnockout, PHASE_NAME, PAUSE_REASONS, periodLimitSec, computeKeeperStats, keeperDetail, teamProgress, skeleton,
+  shootout, penDots, PEN_ROUNDS,
 } from "./util.js";
 
 const $app = document.getElementById("app");
@@ -245,11 +246,15 @@ function subNav() {
 // --- Daftar pertandingan ---
 function matchForm(m) {
   const k = m || {};
+  // Setelah laga dimulai, fase dan tim dikunci (line up dan kejadian terikat pada tim ini). Jadwal/jam tetap bisa diubah.
+  const locked = !!m && m.status !== "scheduled", dis = locked ? "disabled" : "";
   return `<form data-form="match" ${m ? `data-id="${esc(m.id)}"` : ""}>
-    <div class="grid2"><div><label>Fase</label><select name="stage">${stageOptions(k.stage)}</select></div>
+    ${locked ? `<p class="hint">Laga sudah dimulai: fase dan tim tidak bisa diubah. Untuk memperbaiki hasil pakai <b>Buka kembali untuk koreksi</b>.</p>` : ""}
+    <div class="grid2"><div><label>Fase</label><select name="stage" ${dis}>${stageOptions(k.stage)}</select></div>
       <div><label>Matchday</label><input type="number" name="matchday" min="1" value="${k.matchday ?? 1}"></div></div>
-    <div class="grid2"><div><label>Tim A</label><select name="teamA">${teamOptions(k.teamA)}</select></div>
-      <div><label>Tim B</label><select name="teamB">${teamOptions(k.teamB)}</select></div></div>
+    <div class="grid2"><div><label>Tim A</label><select name="teamA" ${dis}>${teamOptions(k.teamA)}</select></div>
+      <div><label>Tim B</label><select name="teamB" ${dis}>${teamOptions(k.teamB)}</select></div></div>
+    <div class="grid2"><div><label>Urutan bagan (QF 1–4, SF 1–2)</label><input type="number" name="slot" min="1" max="4" value="${k.slot ?? ""}" placeholder="otomatis dari jam"></div><div></div></div>
     <label>Tanggal &amp; jam (WIB)</label><input type="datetime-local" name="kickoff" value="${toLocalInput(k.kickoff)}">
     <div class="form-actions"><button class="btn orange" type="submit">${m ? "Simpan jadwal" : "Tambah pertandingan"}</button></div>
   </form>`;
@@ -286,24 +291,48 @@ function matchesView() {
       <div class="rt">${flag}<span class="go">${m.status === "live" ? "Kontrol" : m.status === "ft" ? "Lihat" : "Kelola"}</span></div></a>`;
   };
   const sec = (title, list) => list.length ? `<h2 class="sect">${title} <span>${list.length}</span></h2><div class="panel list">${list.map(row).join("")}</div>` : "";
-  const plan = planKnockout(state.teams, state.matches);
+  const plan = planKnockout(state.teams, state.matches, state.events);
   const koCard = plan.length ? `<div class="panel ko-fill"><h2 class="a">Babak gugur siap diisi</h2>
     <p class="hint">Tim berikut sudah pasti dan bisa dimasukkan otomatis: <b>${plan.map((x) => esc(x.name)).join(", ")}</b>.</p>
     <div class="btns"><button class="btn orange" data-act="fill-ko">Isi pasangan otomatis</button></div></div>` : "";
-  return `<h1 class="page">Pertandingan</h1>${koCard}
+  const ties = unresolvedTies(state.teams, state.matches, state.events);
+  const tieCard = ties.map((t, n) => `<form class="panel ko-fill" data-form="tiebreak" data-id="${n}"><h2 class="a">Grup ${esc(t.group)}: seri penuh, tentukan lewat adu penalti</h2>
+    <p class="hint">Poin, GM, head to head, selisih gol, dan kartu sama. Setelah adu penalti/undian, isi urutan akhir (1 = paling atas) lalu simpan.</p>
+    ${t.rows.map((r) => `<div class="tie-row"><span>${esc(r.name)}</span><input type="number" name="tb-${esc(r.teamId)}" min="1" max="${t.rows.length}" required inputmode="numeric" aria-label="Urutan ${esc(r.name)}"></div>`).join("")}
+    <div class="btns"><button class="btn orange" type="submit">Simpan urutan</button></div></form>`).join("");
+  return `<h1 class="page">Pertandingan</h1>${tieCard}${koCard}
   ${sec("Sedang berlangsung", live)}${sec("Akan datang", sched)}${sec("Selesai", done)}
   ${all.length ? "" : `<div class="panel"><p class="empty">Belum ada pertandingan. Tambahkan lewat menu <a class="lnk" href="#match-add">Tambah pertandingan</a>.</p></div>`}`;
 }
 
-// Adu penalti: hanya untuk babak gugur yang skornya seri
+// Adu penalti: hanya untuk babak gugur yang skornya seri. Tiap tendangan dicatat (Gol/Gagal), pemenang dihitung otomatis.
+// Tendangan penalti TIDAK dicatat sebagai gol: tidak masuk top scorer, skor tetap seri, tidak menambah kebobolan kiper.
 function penForm(m) {
   if (!isKnockout(m) || m.status === "scheduled" || (m.scoreA ?? 0) !== (m.scoreB ?? 0)) return "";
   // selama babak biasa/ET masih berjalan, penalti belum relevan; muncul saat fase adu penalti, setelah FT, atau saat koreksi
   if (m.status === "live" && phaseOf(m) !== "pen" && !m.correcting) return "";
-  return `<div class="panel warnbox"><h2 class="a">${phaseOf(m) === "pen" ? "Adu penalti: pilih pemenang" : "Skor seri, pilih pemenang adu penalti"}</h2><form data-form="pen" data-id="${esc(m.id)}">
-    <p class="hint">Wajib dipilih sebelum laga bisa diakhiri. Gol adu penalti tidak dicatat sebagai gol, jadi tidak masuk top scorer dan skor tetap seri. Pemenang otomatis lanjut ke babak berikutnya.</p>
-    <div class="grid2"><select name="pen"><option value="">— belum dipilih —</option><option value="A" ${m.penWinner === "A" ? "selected" : ""}>${esc(sideName(m, "A"))}</option><option value="B" ${m.penWinner === "B" ? "selected" : ""}>${esc(sideName(m, "B"))}</option></select>
-    <button class="btn orange" type="submit">Simpan</button></div></form></div>`;
+  const so = shootout(m), live = m.status === "live" && (phaseOf(m) === "pen" || m.correcting);
+  const id = esc(m.id);
+  const side = (s) => {
+    const off = so.winner || (so.next && so.next !== s);
+    return `<div class="pen-side"><b>${esc(sideName(m, s))}</b><div class="pen-dots" aria-label="Hasil tendangan">${penDots(m, s)}</div>
+      <div class="pen-btns"><button class="btn go" data-act="pen-kick" data-id="${id}" data-side="${s}" data-res="g" ${off ? "disabled" : ""}>Gol</button>
+      <button class="btn danger" data-act="pen-kick" data-id="${id}" data-side="${s}" data-res="m" ${off ? "disabled" : ""}>Gagal</button></div></div>`;
+  };
+  const status = so.winner
+    ? `Pemenang: <b>${esc(sideName(m, so.winner))}</b> (otomatis). Tekan Selesai (FT) untuk mengakhiri laga.`
+    : so.any
+      ? (so.next ? `Giliran <b>${esc(sideName(m, so.next))}</b>.` : `Kedua tim sudah menendang ${so.taken.A}x. Lanjut tendangan berikutnya.`) + (so.taken.A >= PEN_ROUNDS && so.taken.B >= PEN_ROUNDS ? " Sudah masuk sudden death." : "")
+      : `Belum ada tendangan. Catat tendangan pertama dari tim yang menendang lebih dulu.`;
+  return `<div class="panel warnbox"><h2 class="a">${phaseOf(m) === "pen" ? "Adu penalti" : "Skor seri: adu penalti"}</h2>
+    ${live ? `<div class="pen-board"><div class="pen-score"><span>${esc(sideName(m, "A"))}</span><b>${so.goals.A} – ${so.goals.B}</b><span>${esc(sideName(m, "B"))}</span></div>
+      <div class="pen-sides">${side("A")}${side("B")}</div>
+      <p class="hint pen-status">${status}</p>
+      <div class="btns"><button class="btn ghost" data-act="pen-undo" data-id="${id}" ${so.any ? "" : "disabled"}>Batalkan tendangan terakhir</button></div></div>` : so.any ? `<p class="hint">Hasil tendangan: ${so.goals.A} – ${so.goals.B}.</p>` : ""}
+    <form data-form="pen" data-id="${id}">
+      <p class="hint">${live ? "Cadangan (bila perlu): pilih pemenang manual. Ini mengosongkan tendangan yang sudah dicatat." : "Pemenang adu penalti."} Wajib ada pemenang sebelum laga bisa diakhiri. Pemenang otomatis lanjut ke babak berikutnya.</p>
+      <div class="grid2"><select name="pen"><option value="">— belum dipilih —</option><option value="A" ${m.penWinner === "A" ? "selected" : ""}>${esc(sideName(m, "A"))}</option><option value="B" ${m.penWinner === "B" ? "selected" : ""}>${esc(sideName(m, "B"))}</option></select>
+      <button class="btn ghost" type="submit">Simpan manual</button></div></form></div>`;
 }
 
 // ---------- Line up (draft di memori sampai disimpan) ----------
@@ -507,9 +536,17 @@ function matchAdminView(id) {
 
   const allPlayers = [...lineupIds(m, "A"), ...lineupIds(m, "B")].map((x) => state.playerById[x]).filter(Boolean);
 
+  const woCard = m.status === "scheduled" && m.teamA && m.teamB
+    ? `<details class="panel fold"><summary>Menang WO (tim lawan tidak hadir)</summary>
+      <form data-form="wo" data-id="${esc(id)}"><p class="hint">Laga langsung selesai tanpa line up dan hasilnya masuk klasemen. Tidak ada gol/kartu yang tercatat, jadi tidak memengaruhi top scorer maupun statistik kiper. Skor WO ditentukan panitia (umumnya 3 – 0).</p>
+      <div class="grid3"><div><label for="wo-w">Pemenang</label><select id="wo-w" name="winner"><option value="A">${esc(sideName(m, "A"))}</option><option value="B">${esc(sideName(m, "B"))}</option></select></div>
+        <div><label for="wo-s">Skor pemenang</label><input id="wo-s" type="number" name="w" min="0" value="3"></div>
+        <div><label for="wo-l">Skor tim absen</label><input id="wo-l" type="number" name="l" min="0" value="0"></div></div>
+      <div class="form-actions"><button class="btn danger" type="submit">Tetapkan menang WO</button></div></form></details>` : "";
   return `<a class="back" href="#matches">← Daftar laga</a>${board}${readiness}${penForm(m)}${pos}
   <div class="panel"><h2 class="a">Riwayat kejadian <span class="cntb">${evs.filter((e) => e.type !== "phase").length}</span></h2>${evList}${m.status === "live" ? `<p class="hint">Salah catat? Batalkan, skor ikut menyesuaikan.</p>` : ""}</div>
   <details class="panel fold" ${m.status === "scheduled" || miss.length ? "open" : ""}><summary>Line up ${miss.length ? '<span class="flag warn">perlu diisi</span>' : '<span class="flag ok">lengkap</span>'}</summary>${lineupEditor(m)}</details>
+  ${woCard}
   ${manageCard(m, allPlayers)}
   ${sheetView(m)}`;
 }
@@ -639,7 +676,7 @@ function keeperView() {
   const seen = new Set(stats.map((k) => k.id));
   const idle = state.players.filter((p) => p.isGK && !isOfficial(p) && !seen.has(p.id))
     .sort((a, b) => tName(a.teamId).localeCompare(tName(b.teamId), "id") || byNumber(a, b))
-    .map((p) => ({ ...p, played: 0, cleanSheets: 0, conceded: 0, avg: 0, goals: 0, assists: 0, progress: teamProgress(p.teamId, state.teams, state.matches) }));
+    .map((p) => ({ ...p, played: 0, cleanSheets: 0, conceded: 0, avg: 0, goals: 0, assists: 0, progress: teamProgress(p.teamId, state.teams, state.matches, state.events) }));
   const list = [...stats, ...idle];
   const best = s.bestGkId ? state.playerById[s.bestGkId] : null;
   const head = `<h1 class="page">Kiper terbaik</h1>`;
@@ -695,7 +732,7 @@ function render() {
   if (!user) { setBar(""); delete $app.dataset.skel; $app.innerHTML = loginView(); return; }
   setBar(topBar());
   if (isReady()) {
-    const b = computeBracket(state.teams, state.matches);
+    const b = computeBracket(state.teams, state.matches, state.events);
     slotByMatch = new Map([...b.qf, ...b.sf, b.final, ...(b.third ? [b.third] : [])].filter((x) => x.match).map((x) => [x.match.id, x]));
   }
   const r = route();
@@ -770,11 +807,11 @@ async function recordEvent(m, side, playerId, type, assistId, opts = {}) {
   }
   const st = stampNow(m);
   const ref = doc(collection(db, "events"));
-  const ev = { matchId: m.id, type, teamId, playerId, assistId: type === "goal" && assistId ? assistId : null, minute: st.minute, extra: st.extra, sec: st.sec, p: st.p, ps: st.ps, ts: nowMs() };
+  const ev = { matchId: m.id, type, teamId, playerId, assistId: type === "goal" && assistId ? assistId : null, minute: st.minute, extra: st.extra, sec: st.sec, p: st.p, ps: st.ps, pm: st.pm, ts: nowMs() };
   if (type === "goal" && opts.pen) ev.pen = true;
   const [a, b] = finalScore(m, [...state.events.filter((e) => e.matchId === m.id), { ...ev, id: ref.id }]);
   const patch = { scoreA: a, scoreB: b };
-  if (a !== b && m.penWinner) patch.penWinner = null;
+  if (a !== b && (m.penWinner || m.penKicks?.length)) { patch.penWinner = null; patch.penKicks = []; }
   const batch = writeBatch(db);
   batch.set(ref, ev);
   if (secondYellow) batch.set(doc(collection(db, "events")), { ...ev, type: "red", second: true, ts: nowMs() + 1 });
@@ -788,7 +825,7 @@ const runClock = (base = 0) => ({ running: true, baseSec: base, startedAt: nowMs
 const stopClock = (base = 0) => ({ running: false, baseSec: base, startedAt: null });
 const limitText = (m, ph) => { const s = periodLimitSec(m, ph); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
 /** Catatan fase yang tampil di jalannya laga (bukan gol/kartu, jadi tidak memengaruhi skor atau statistik). */
-const mkNote = (m, note, st) => ({ matchId: m.id, type: "phase", teamId: null, playerId: null, assistId: null, note, minute: st.minute, extra: st.extra, sec: st.sec, p: st.p, ps: st.ps, ts: nowMs() });
+const mkNote = (m, note, st) => ({ matchId: m.id, type: "phase", teamId: null, playerId: null, assistId: null, note, minute: st.minute, extra: st.extra, sec: st.sec, p: st.p, ps: st.ps, pm: st.pm, ts: nowMs() });
 /** Pindah fase: jam fase baru dimulai dari 0, jeda dan tambahan waktu direset, catatan fase ikut tersimpan. */
 async function goPhase(m, phase, { notes = [], clock, extra = {} }) {
   const b = writeBatch(db);
@@ -815,7 +852,7 @@ const actions = {
     // durasi dibekukan sekarang: mengubah Pengaturan nanti tidak mengacaukan laga ini
     await updateDoc(matchRef(id), {
       status: "live", phase: "h1", cfg: cfgFor(m, timingOf(state.settings)), clock: runClock(), pause: null, addedMin: 0,
-      correcting: false, etPlayed: false, timeouts: {}, penWinner: null,
+      correcting: false, etPlayed: false, timeouts: {}, penWinner: null, penKicks: [], wo: false,
     });
   },
   async "end-h1"(id) {
@@ -944,7 +981,7 @@ const actions = {
     toast("Line up tersimpan");
   },
   async "fill-ko"() {
-    const plan = planKnockout(state.teams, state.matches);
+    const plan = planKnockout(state.teams, state.matches, state.events);
     if (!plan.length) throw new Error("Belum ada tim yang bisa diisi.");
     const b = writeBatch(db);
     plan.forEach((x) => b.update(matchRef(x.id), x.patch));
@@ -953,12 +990,35 @@ const actions = {
   },
   async reopen(id) {
     const m = state.matchById[id];
+    if (m.wo) {
+      if (!(await confirmBox("Status WO dibatalkan, laga kembali ke Terjadwal dengan skor 0 – 0 dan hasilnya keluar dari klasemen.", { title: "Batalkan hasil WO?", ok: "Ya, batalkan WO", danger: true }))) return;
+      await updateDoc(matchRef(id), { status: "scheduled", wo: false, scoreA: 0, scoreB: 0, adjA: 0, adjB: 0, phase: null, penWinner: null, penKicks: [], correcting: false, pause: null, addedMin: 0, clock: stopClock(0) });
+      return;
+    }
     if (!(await confirmBox("Hasilnya keluar dari klasemen sampai kamu menekan Selesai (FT) lagi.", { title: "Buka kembali laga ini untuk koreksi?", ok: "Ya, buka kembali" }))) return;
     // laga lama (sebelum fase) diberi fase terakhir supaya cap menit koreksi masuk akal
     await updateDoc(matchRef(id), {
       status: "live", phase: m.phase || "h2", cfg: m.cfg || cfgFor(m, timingOf(state.settings)), correcting: true,
       pause: { key: "koreksi", label: "Koreksi" }, clock: stopClock(m.clock?.baseSec || 0),
     });
+  },
+  async "pen-kick"(id, el) {
+    const m = state.matchById[id];
+    if (!m || m.status !== "live" || !isKnockout(m) || (m.scoreA ?? 0) !== (m.scoreB ?? 0)) throw new Error("Adu penalti hanya untuk laga babak gugur yang masih seri.");
+    if (phaseOf(m) !== "pen" && !m.correcting) throw new Error("Adu penalti belum dimulai. Pilih Langsung adu penalti / Lanjut adu penalti dulu.");
+    const side = el.dataset.side, so = shootout(m);
+    if (side !== "A" && side !== "B") return;
+    if (so.winner) throw new Error(`Pemenang sudah pasti: ${sideName(m, so.winner)}. Batalkan tendangan terakhir bila salah catat.`);
+    if (so.next && so.next !== side) throw new Error(`Giliran ${sideName(m, so.next)} dulu.`);
+    const kicks = [...so.kicks, { s: side, g: el.dataset.res === "g" }];
+    await updateDoc(matchRef(id), { penKicks: kicks, penWinner: shootout({ penKicks: kicks }).winner });
+    toast(`${sideName(m, side)}: ${el.dataset.res === "g" ? "gol" : "gagal"}`);
+  },
+  async "pen-undo"(id) {
+    const m = state.matchById[id], so = shootout(m);
+    if (!so.any) throw new Error("Belum ada tendangan.");
+    const kicks = so.kicks.slice(0, -1);
+    await updateDoc(matchRef(id), { penKicks: kicks, penWinner: kicks.length ? shootout({ penKicks: kicks }).winner : null });
   },
   async "del-event"(id) {
     const e = state.events.find((x) => x.id === id);
@@ -970,7 +1030,7 @@ const actions = {
     if (m) {
       const [a, b] = finalScore(m, state.events.filter((x) => x.matchId === m.id && x.id !== id));
       const patch = { scoreA: a, scoreB: b };
-      if (a !== b && m.penWinner) patch.penWinner = null;
+      if (a !== b && (m.penWinner || m.penKicks?.length)) { patch.penWinner = null; patch.penKicks = []; }
       batch.update(matchRef(m.id), patch);
     }
     await batch.commit();
@@ -1067,18 +1127,41 @@ const actions = {
 };
 
 const forms = {
+  async tiebreak(f) {
+    const entries = [...new FormData(f).entries()].filter(([k]) => k.startsWith("tb-")).map(([k, v]) => [k.slice(3), Number(v)]);
+    const nums = entries.map(([, n]) => n);
+    if (entries.some(([, n]) => !Number.isInteger(n) || n < 1)) throw new Error("Isi urutan dengan angka 1, 2, 3, ...");
+    if (new Set(nums).size !== nums.length) throw new Error("Urutan tidak boleh kembar. Beri tiap tim nomor berbeda.");
+    for (const [id, n] of entries) await updateDoc(doc(db, "teams", id), { tbRank: n });
+  },
   async login(f) {
     const fd = new FormData(f);
     await signInWithEmailAndPassword(auth, String(fd.get("email")).trim(), String(fd.get("password")));
   },
   async match(f) {
-    const fd = new FormData(f);
-    const stage = fd.get("stage");
-    const teamA = fd.get("teamA") || null, teamB = fd.get("teamB") || null;
+    const fd = new FormData(f), id = f.dataset.id, old = id ? state.matchById[id] : null;
+    // laga yang sudah dimulai: fase dan tim dikunci (field disabled tidak ikut terkirim, jadi ambil dari data laga)
+    const locked = !!old && old.status !== "scheduled";
+    const stage = locked ? (old.stage || "group") : String(fd.get("stage") || "group");
+    const teamA = locked ? old.teamA || null : fd.get("teamA") || null, teamB = locked ? old.teamB || null : fd.get("teamB") || null;
     if (teamA && teamA === teamB) throw new Error("Tim A dan Tim B tidak boleh sama.");
     const group = stage === "group" ? (state.teamById[teamA]?.group || state.teamById[teamB]?.group || "") : "";
-    const data = { stage, group, matchday: Number(fd.get("matchday")) || 1, teamA, teamB, kickoff: fromLocalInput(fd.get("kickoff")) };
-    const id = f.dataset.id;
+    // urutan bagan eksplisit (QF1-4, SF1-2) supaya bagan tidak bergantung pada jam kickoff
+    let slot = null;
+    if (stage === "qf" || stage === "sf") {
+      const raw = String(fd.get("slot") ?? "").trim(), max = stage === "qf" ? 4 : 2;
+      if (raw !== "") {
+        slot = Number(raw);
+        if (!Number.isInteger(slot) || slot < 1 || slot > max) throw new Error(`Urutan bagan ${stage.toUpperCase()} harus angka 1–${max}.`);
+        if (state.matches.some((x) => x.id !== id && x.stage === stage && x.slot === slot)) throw new Error(`${stage.toUpperCase()}${slot} sudah dipakai laga lain.`);
+      }
+    }
+    const data = { stage, group, matchday: Number(fd.get("matchday")) || 1, teamA, teamB, kickoff: fromLocalInput(fd.get("kickoff")), slot };
+    if (old && !locked) {
+      // tim diganti: line up lama milik tim sebelumnya, kosongkan
+      if (teamA !== (old.teamA || null)) data.lineupA = { starters: [], subs: [] };
+      if (teamB !== (old.teamB || null)) data.lineupB = { starters: [], subs: [] };
+    }
     if (id) { await updateDoc(matchRef(id), data); toast("Tersimpan"); }
     else {
       await setDoc(doc(collection(db, "matches")), {
@@ -1094,7 +1177,7 @@ const forms = {
     if (!lines.length) throw new Error("Tempel jadwal dulu.");
     const byName = Object.fromEntries(state.teams.map((t) => [t.name.trim().toLowerCase(), t]));
     const stageMap = { qf: "qf", perempat: "qf", sf: "sf", semi: "sf", final: "final", third: "third", "3": "third", juara3: "third" };
-    const docs = [], problems = [];
+    const docs = [], problems = [], slotCount = { qf: 0, sf: 0 };
     lines.forEach((line, i) => {
       const p = line.split(/\s*[|\t;]\s*/);
       const dt = (p[0] || "").trim();
@@ -1112,8 +1195,10 @@ const forms = {
       else if (A && !ta) problems.push(`Baris ${i + 1}: tim "${A}" tidak ditemukan`);
       else if (B && !tb) problems.push(`Baris ${i + 1}: tim "${B}" tidak ditemukan`);
       else if (stage === "group" && (!ta || !tb)) problems.push(`Baris ${i + 1}: laga grup harus punya dua tim`);
+      else if (stage === "group" && ((ta.group || "") !== tag.toUpperCase() || (tb.group || "") !== tag.toUpperCase())) problems.push(`Baris ${i + 1}: ${!ta.group || ta.group !== tag.toUpperCase() ? ta.name : tb.name} bukan anggota grup ${tag.toUpperCase()}`);
       else docs.push({
         stage, group: stage === "group" ? tag.toUpperCase() : "", matchday: Number(p[2]) || 1,
+        slot: stage === "qf" || stage === "sf" ? (++slotCount[stage] <= (stage === "qf" ? 4 : 2) ? slotCount[stage] : null) : null,
         teamA: ta?.id || null, teamB: tb?.id || null, kickoff, status: "scheduled", scoreA: 0, scoreB: 0,
         clock: { running: false, baseSec: 0, startedAt: null }, lineupA: { starters: [], subs: [] }, lineupB: { starters: [], subs: [] }, motmId: null, createdAt: Date.now() + i,
       });
@@ -1132,7 +1217,7 @@ const forms = {
     const m = state.matchById[f.dataset.id], fd = new FormData(f);
     const ta = Math.max(0, Number(fd.get("a")) || 0), tb = Math.max(0, Number(fd.get("b")) || 0);
     const [da, db_] = scoreFromEvents(m, state.events);
-    await updateDoc(matchRef(m.id), { scoreA: ta, scoreB: tb, adjA: ta - da, adjB: tb - db_, ...(ta !== tb && m.penWinner ? { penWinner: null } : {}) });
+    await updateDoc(matchRef(m.id), { scoreA: ta, scoreB: tb, adjA: ta - da, adjB: tb - db_, ...(ta !== tb && (m.penWinner || m.penKicks?.length) ? { penWinner: null, penKicks: [] } : {}) });
   },
   async "new-team"(f) {
     const fd = new FormData(f);
@@ -1158,6 +1243,8 @@ const forms = {
   async team(f) {
     const id = f.dataset.id, fd = new FormData(f);
     const name = String(fd.get("name")).trim(), group = String(fd.get("group")).trim().toUpperCase();
+    if (!name) throw new Error("Nama tim tidak boleh kosong.");
+    if (state.teams.some((t) => t.id !== id && t.name.trim().toLowerCase() === name.toLowerCase())) throw new Error("Nama tim sudah dipakai tim lain.");
     const b = writeBatch(db);
     b.update(doc(db, "teams", id), { name, group });
     state.matches.filter((m) => m.stage === "group" && (m.teamA === id || m.teamB === id)).forEach((m) => b.update(matchRef(m.id), { group }));
@@ -1167,6 +1254,7 @@ const forms = {
     const fd = new FormData(f);
     const n = String(fd.get("number")).trim();
     if (n !== "" && playersOf(f.dataset.id).some((p) => p.number === Number(n))) throw new Error(`No punggung ${n} sudah dipakai di tim ini.`);
+    if (playersOf(f.dataset.id).length >= LIMITS.players && !(await confirmBox(`Tim ini sudah punya ${playersOf(f.dataset.id).length} pemain (ketentuan maksimal ${LIMITS.players}). Tetap tambahkan?`, { title: "Melebihi batas pemain", ok: "Ya, tambahkan" }))) return;
     await setDoc(doc(collection(db, "players")), { teamId: f.dataset.id, name: String(fd.get("name")).trim(), number: n === "" ? null : Number(n), isGK: !!fd.get("gk"), role: "player" });
     f.reset();
   },
@@ -1180,15 +1268,27 @@ const forms = {
   async "bulk-players"(f) {
     const lines = String(new FormData(f).get("text")).split("\n").map((l) => l.trim()).filter(Boolean);
     if (!lines.length) throw new Error("Tempel daftar pemain dulu.");
-    const b = writeBatch(db);
+    const entries = [];
     lines.forEach((l) => {
       const parts = l.split(/\s*[,|\t;]\s*/);
       let number = null;
       if (/^\d{1,2}$/.test(parts[0]) && parts.length > 1) number = Number(parts.shift());
       const name = (parts.shift() || "").trim();
       const isGK = parts.some((x) => /^(gk|kiper)$/i.test(x.trim()));
-      if (name) b.set(doc(collection(db, "players")), { teamId: f.dataset.id, name, number, isGK });
+      if (name) entries.push({ name, number, isGK });
     });
+    if (!entries.length) throw new Error("Tidak ada pemain yang terbaca.");
+    // nomor punggung tidak boleh kembar (di daftar ini maupun dengan pemain yang sudah ada)
+    const used = new Map(playersOf(f.dataset.id).filter((p) => p.number != null).map((p) => [p.number, p.name]));
+    for (const e of entries) {
+      if (e.number == null) continue;
+      if (used.has(e.number)) throw new Error(`No punggung ${e.number} dipakai dua kali (${used.get(e.number)} dan ${e.name}).`);
+      used.set(e.number, e.name);
+    }
+    const total = playersOf(f.dataset.id).length + entries.length;
+    if (total > LIMITS.players && !(await confirmBox(`Tim ini akan punya ${total} pemain (ketentuan maksimal ${LIMITS.players}). Tetap tambahkan?`, { title: "Melebihi batas pemain", ok: "Ya, tambahkan" }))) return;
+    const b = writeBatch(db);
+    entries.forEach((e) => b.set(doc(collection(db, "players")), { teamId: f.dataset.id, name: e.name, number: e.number, isGK: e.isGK, role: "player" }));
     await b.commit(); f.reset(); toast("Pemain ditambahkan");
   },
   async announce(f) {
@@ -1205,15 +1305,27 @@ const forms = {
     };
     await setDoc(doc(db, "settings", "main"), { timing }, { merge: true });
   },
+  async wo(f) {
+    const m = state.matchById[f.dataset.id], fd = new FormData(f);
+    if (!m || m.status !== "scheduled") throw new Error("WO hanya bisa ditetapkan untuk laga yang belum dimulai.");
+    if (!m.teamA || !m.teamB) throw new Error("Kedua tim harus sudah ditentukan.");
+    const side = fd.get("winner") === "B" ? "B" : "A";
+    const w = parseInt(fd.get("w"), 10), l = parseInt(fd.get("l"), 10);
+    if (!Number.isInteger(w) || !Number.isInteger(l) || w < 0 || l < 0) throw new Error("Skor harus angka bulat 0 atau lebih.");
+    if (w <= l) throw new Error("Skor pemenang harus lebih besar dari skor tim yang tidak hadir.");
+    if (!(await confirmBox(`${sideName(m, side)} menang WO ${w} – ${l}. Laga langsung selesai tanpa line up dan hasilnya masuk klasemen.`, { title: "Tetapkan menang WO?", ok: "Ya, tetapkan WO", danger: true }))) return;
+    const [sa, sb] = side === "A" ? [w, l] : [l, w];
+    await updateDoc(matchRef(m.id), { status: "ft", wo: true, scoreA: sa, scoreB: sb, adjA: sa, adjB: sb, phase: null, clock: stopClock(0), pause: null, addedMin: 0, correcting: false, etPlayed: false, penWinner: null, penKicks: [] });
+  },
   async pen(f) {
     const v = new FormData(f).get("pen");
-    await updateDoc(matchRef(f.dataset.id), { penWinner: v === "A" || v === "B" ? v : null });
+    await updateDoc(matchRef(f.dataset.id), { penWinner: v === "A" || v === "B" ? v : null, penKicks: [] });
   },
 };
 const okText = {
   motm: "Tersimpan",
-  score: "Skor diperbarui", "new-team": "Tim ditambahkan", team: "Tersimpan", player: "Pemain ditambahkan", official: "Official ditambahkan",
-  pen: "Pemenang penalti tersimpan", timing: "Durasi tersimpan", announce: "Pengumuman tersimpan",
+  score: "Skor diperbarui", "new-team": "Tim ditambahkan", team: "Tersimpan", player: "Pemain ditambahkan", official: "Official ditambahkan", tiebreak: "Urutan tersimpan",
+  pen: "Pemenang penalti tersimpan", wo: "WO ditetapkan", timing: "Durasi tersimpan", announce: "Pengumuman tersimpan",
 };
 
 document.addEventListener("click", (e) => {

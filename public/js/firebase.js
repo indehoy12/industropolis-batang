@@ -2,7 +2,7 @@
 // keamanan data diatur oleh firestore.rules.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import {
-  getFirestore, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc,
+  getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc,
   writeBatch, increment, serverTimestamp, getDoc, getDocs, query, orderBy, where, deleteField,
 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import {
@@ -20,7 +20,17 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+// Cache lokal (IndexedDB): pengunjung yang kembali tidak membaca ulang semua dokumen, hanya yang berubah.
+// Ini menekan jumlah baca Firestore (kuota). Bila browser menolak IndexedDB, otomatis pakai mode biasa.
+function makeDb() {
+  try {
+    return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  } catch (e) {
+    console.warn("Cache lokal tidak aktif:", e?.message || e);
+    return getFirestore(app);
+  }
+}
+export const db = makeDb();
 export const auth = getAuth(app);
 
 export {

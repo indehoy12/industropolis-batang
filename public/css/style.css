@@ -308,9 +308,9 @@ a.bm:hover { border-color: var(--court-2); }
 .tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--rule); margin: 0 0 14px; background: var(--white); }
 .tabs a { text-align: center; padding: 14px 0; font-weight: 600; color: var(--ink-3); border-bottom: 3px solid transparent; margin-bottom: -1px; }
 .tabs a.on { color: var(--ink); border-bottom-color: var(--orange); }
-.tl { display: grid; grid-template-columns: 58px 52px 1fr; gap: 10px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--rule); }
+.tl { display: grid; grid-template-columns: 76px 52px 1fr; gap: 10px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--rule); }
 .tl:first-of-type { border-top: 0; }
-.tl .min { font-family: var(--font-d); font-weight: 700; font-size: 20px; }
+.tl .min { font-family: var(--font-d); font-weight: 700; font-size: 20px; white-space: nowrap; }
 .tl .ev b { font-weight: 600; }
 .tl .ev small { display: block; color: var(--ink-3); font-size: 13px; }
 .ico { width: 18px; height: 18px; display: inline-block; }
@@ -491,3 +491,12 @@ details.team, .bm { border: 1px solid rgba(14,26,51,.06); border-radius: 18px; b
 @media (min-width: 900px) { .sk-two { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 1000px) { .sk-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
+
+/* Adu penalti: titik hasil tendangan */
+.pk { font-style: normal; font-size: 18px; letter-spacing: 3px; color: var(--ink-3); }
+.pk.g { color: var(--win); }
+.pk.m { color: var(--live); }
+.pk-dots { white-space: nowrap; }
+.pen-card { margin-bottom: 12px; }
+.pen-card > h3 b { margin-left: 6px; }
+.pen-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--rule); font-weight: 600; }
