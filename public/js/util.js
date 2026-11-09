@@ -1,9 +1,14 @@
 // Fungsi murni (tanpa Firebase) supaya mudah dites.
 
+// SATU TEMPAT untuk nama dan info turnamen. Ubah di sini, lalu semua tampilan (beranda, TV, judul tab, footer) ikut berubah.
+// Catatan: judul/deskripsi di <head> index.html dan admin/index.html, serta teks di dalam video promo dan og-image.jpg, diubah manual.
 export const TOURNAMENT = {
-  name: "Industropolis Futsal League 2026",
-  short: "IFL 2026",
-  venue: "KEK Industropolis Batang",
+  name: "Industropolis Batang Futsal League", // nama lengkap (judul tab, footer, alt logo)
+  line1: "Industropolis Batang",               // baris 1 di logo teks (bilah atas, hero, TV)
+  line2: "Futsal League",                      // baris 2 (miring)
+  short: "IBFL 2026",
+  tagline: "Khusus karyawan tenant Industropolis Batang",
+  venue: "Sagara Futsal Arena, KEK Industropolis Batang",
   start: "2026-11-20",
   end: "2026-12-04",
 };
@@ -364,9 +369,11 @@ function sortGroup(rows, doneMatches) {
 }
 
 // ---------- Statistik pemain ----------
-export function computePlayerStats(players, events) {
+// teams + matches bersifat opsional; bila diberikan, tiap pemain mendapat `reach` (seberapa jauh timnya bertahan) untuk penentu urutan imbang di topBy.
+export function computePlayerStats(players, events, teams = null, matches = null) {
+  const reach = teams && matches ? teamReachMap(teams, matches, events) : {};
   const byId = {};
-  for (const p of players) byId[p.id] = { ...p, goals: 0, assists: 0, yellow: 0, red: 0, ownGoals: 0 };
+  for (const p of players) byId[p.id] = { ...p, goals: 0, assists: 0, yellow: 0, red: 0, ownGoals: 0, reach: reach[p.teamId] ?? 0 };
   for (const e of events) {
     const p = byId[e.playerId];
     if (e.type === "goal" && p) p.goals++;
@@ -378,10 +385,18 @@ export function computePlayerStats(players, events) {
   return Object.values(byId);
 }
 
+/**
+ * Top scorer / top assist. Urutan:
+ * 1) angka utama (gol untuk top scorer, assist untuk top assist), terbanyak di atas;
+ * 2) angka pendamping (top scorer: assist terbanyak; top assist: gol terbanyak);
+ * 3) tim yang bertahan paling jauh di turnamen (lihat teamReachMap): juara di atas, tim yang masih bertanding di atas tim yang sudah gugur, gugur di babak lebih akhir di atas gugur lebih awal;
+ * 4) hanya bila semuanya masih sama persis: abjad nama (supaya urutan tetap stabil, bukan penentu utama).
+ */
 export function topBy(stats, key, limit = 10) {
+  const other = key === "goals" ? "assists" : "goals";
   return stats
     .filter((p) => p[key] > 0)
-    .sort((a, b) => b[key] - a[key] || (a.name || "").localeCompare(b.name || "", "id"))
+    .sort((a, b) => b[key] - a[key] || (b[other] || 0) - (a[other] || 0) || (b.reach || 0) - (a.reach || 0) || (a.name || "").localeCompare(b.name || "", "id"))
     .slice(0, limit);
 }
 
@@ -431,7 +446,7 @@ export function keeperDetail(playerId, players, matches, teams, events) {
  * Sampai mana sebuah tim: { label, out } dengan label seperti "Gugur di Perempat Final", "Juara", "Masih bertanding".
  * Grup baru dianggap gugur setelah semua laga grupnya selesai dan tim tidak masuk 2 besar.
  */
-export function teamProgress(teamId, teams, matches, events = []) {
+export function teamProgress(teamId, teams, matches, events = [], std = null) {
   const team = teams.find((t) => t.id === teamId);
   const mine = matches.filter((m) => m.teamA === teamId || m.teamB === teamId);
   const sideOf = (m) => (m.teamA === teamId ? "A" : "B");
@@ -445,13 +460,29 @@ export function teamProgress(teamId, teams, matches, events = []) {
   if (qf) { const r = result(qf); return r === "W" ? { label: "Lolos ke semi final", out: false } : r === "L" ? { label: "Gugur di Perempat Final", out: true } : { label: "Di perempat final", out: false }; }
   if (!team || !team.group) return { label: "–", out: false };
   if (!groupDone(matches, team.group, teams)) return { label: "Masih di babak grup", out: false };
-  const rows = computeStandings(teams, matches, events)[team.group] || [];
+  const rows = (std || computeStandings(teams, matches, events))[team.group] || [];
   const idx = rows.findIndex((r) => r.teamId === teamId);
   if (rows[idx]?.tied && rows.some((r, i) => r.tieId === rows[idx].tieId && i < QUALIFY_PER_GROUP) && rows.some((r, i) => r.tieId === rows[idx].tieId && i >= QUALIFY_PER_GROUP))
     return { label: "Menunggu adu penalti", out: false };
   return idx < QUALIFY_PER_GROUP
     ? { label: "Lolos ke perempat final", out: false }
     : { label: "Gugur di Babak Grup", out: true };
+}
+
+/** Nilai "bertahan sampai mana" per label teamProgress; makin besar makin jauh. Dipakai sebagai penentu urutan imbang top scorer / top assist. */
+const REACH_BY_LABEL = {
+  "Juara": 100, "Di final": 95, "Lolos ke final": 95, "Runner-up": 90,
+  "Juara 3": 80, "Perebutan juara 3": 75, "Gugur di Semi Final": 72, "Peringkat 4": 70,
+  "Di semi final": 60, "Lolos ke semi final": 60,
+  "Di perempat final": 40, "Lolos ke perempat final": 40, "Menunggu adu penalti": 35, "Gugur di Perempat Final": 30,
+  "Masih di babak grup": 20, "Gugur di Babak Grup": 10,
+};
+/** { teamId: nilai } untuk semua tim; klasemen dihitung sekali saja. */
+export function teamReachMap(teams, matches, events = []) {
+  const std = computeStandings(teams, matches, events);
+  const out = {};
+  for (const t of teams) out[t.id] = REACH_BY_LABEL[teamProgress(t.id, teams, matches, events, std).label] ?? 0;
+  return out;
 }
 
 /** Skor yang berlaku = gol dari daftar kejadian + koreksi manual (adjA/adjB, mis. menang WO). */
@@ -617,8 +648,7 @@ export function skeleton(kind = "list") {
   return `<div class="sk-wrap" role="status" aria-busy="true" aria-label="Memuat">${body}</div>`;
 }
 
-// Logo situs (assets/logo.png) bersifat opsional. Bila file belum ada, gambar diganti kotak bertuliskan "LOGO".
-// Begitu logo.png diunggah, gambar asli otomatis tampil. Pakai listener (bukan atribut onerror) karena CSP situs melarang skrip inline.
+// Logo situs (assets/logo.png, perisai Industropolis Batang Futsal League). Bila file hilang, gambar diganti kotak bertuliskan "LOGO".
 if (typeof document !== "undefined") {
   const placeholder = (img) => {
     const ph = document.createElement("span");

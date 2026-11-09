@@ -1,4 +1,4 @@
-// Panel admin IFL 2026. Hanya akun yang terdaftar di firestore.rules yang bisa menulis data.
+// Panel admin Industropolis Batang Futsal League. Hanya akun yang terdaftar di firestore.rules yang bisa menulis data.
 import {
   db, auth, collection, doc, setDoc, updateDoc, deleteDoc, writeBatch, increment,
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -198,7 +198,7 @@ function route() {
 
 // ---------- Tampilan ----------
 function loginView() {
-  return `<div class="login"><img src="../assets/logo.png" alt="IFL" data-sitelogo>
+  return `<div class="login"><img src="../assets/logo.png" alt="Industropolis Batang Futsal League" data-sitelogo>
     <h2 class="a" style="text-align:center">Login panitia</h2>
     <div class="adm-clock-m" style="display:flex">${rtClockHtml("adm")}</div>
     <form data-form="login">
@@ -227,7 +227,7 @@ function topBar() {
   const tree = NAV.map((g) => `<div class="side-group ${g === cur ? "cur" : ""}"><div class="side-title">${esc(g.title)} ${dot(g)}</div>
       <div class="side-sub">${g.items.map(([k, l]) => `<a class="${k === key ? "on" : ""}" href="#${k}" ${k === key ? 'aria-current="page"' : ""}>${l}</a>`).join("")}</div></div>`).join("");
   return `<aside class="side" id="side">
-    <div class="side-brand"><img src="../assets/logo.png" alt="" data-sitelogo><div><b>Admin IFL</b><small>Panel panitia 2026</small></div></div>
+    <div class="side-brand"><img src="../assets/logo.png" alt="" data-sitelogo><div><b>Admin IBFL</b><small>Industropolis Batang Futsal League</small></div></div>
     <div class="side-clock">${rtClockHtml("adm")}</div>
     <nav class="side-tree" aria-label="Menu admin">${tree}</nav>
     <div class="side-foot">
@@ -272,7 +272,7 @@ function dashboardView() {
   const lastCard = `<div class="panel"><h2 class="a">Hasil terakhir</h2>${done.length ? done.slice(0, 5).map((m) => `<a class="arow" href="#match/${esc(m.id)}"><div class="when">${m.kickoff ? dayShort(m.kickoff) : "–"}<b>${timeStr(m.kickoff)}</b></div><div class="vs"><span>${esc(sideName(m, "A"))} <em>${m.scoreA ?? 0} – ${m.scoreB ?? 0}</em> ${esc(sideName(m, "B"))}</span></div><div class="rt"><span class="go">Lihat</span></div></a>`).join("") : `<p class="empty">Belum ada laga selesai.</p>`}</div>`;
   const std = computeStandings(state.teams, ms, ev);
   const stdCard = Object.keys(std).filter((g) => std[g]?.length).sort().map((g) => `<div class="dstd"><b>Grup ${esc(g)}</b>${std[g].slice(0, 4).map((r, i) => `<div><span>${i + 1}. ${esc(r.name)}</span><em>${r.p}M · ${r.pts} poin</em></div>`).join("")}</div>`).join("");
-  const stats = computePlayerStats(state.players, ev);
+  const stats = computePlayerStats(state.players, ev, state.teams, state.matches);
   const sc = topBy(stats, "goals", 5);
   const scCard = `<div class="panel"><h2 class="a">Top scorer</h2>${sc.length ? sc.map((p, i) => `<div class="dline"><span>${i + 1}. ${esc(p.name)} <small>${esc(tName(p.teamId))}</small></span><b>${p.goals}</b></div>`).join("") : `<p class="empty">Belum ada gol.</p>`}</div>`;
   const warn = sched.filter((m) => matchReadiness(m, state.players).length).length;
@@ -706,7 +706,7 @@ function timingView() {
     <p class="hint">Bila 1 babak non-stop, isi durasi totalnya (mis. 20). Contoh bawaan: 2 × 10 menit.</p>
     <div class="grid2">${num("koHalf", "Babak gugur: menit per babak", t.koHalf, 1, 45)}${num("etHalf", "Perpanjangan waktu: menit per babak", t.etHalf, 1, 15)}</div>
     <div class="grid2">${num("breakMin", "Istirahat antar babak (menit)", t.breakMin, 0, 20)}${num("etBreakMin", "Istirahat ET1 ke ET2 (menit)", t.etBreakMin, 0, 10)}</div>
-    <p class="hint">Aturan futsal (FIFA): 2 × 20 menit, istirahat maksimal 15 menit, perpanjangan 2 × 5 menit, lalu adu penalti. Durasi di sini mengikuti keputusan panitia IFL.</p>
+    <p class="hint">Aturan futsal (FIFA): 2 × 20 menit, istirahat maksimal 15 menit, perpanjangan 2 × 5 menit, lalu adu penalti. Durasi di sini mengikuti keputusan panitia.</p>
     <div class="form-actions"><button class="btn orange" type="submit">Simpan durasi</button></div></form></div>`;
 }
 // Kiper terbaik: kartu urut dari nilai terbaik. Ketuk kartu = panitia memilih kiper itu.

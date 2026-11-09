@@ -1,17 +1,25 @@
-/* IFL 2026 — tampilan publik.
-   Konsep: papan skor & lembar jadwal lapangan. Dasar kertas putih-kebiruan, garis lapangan tipis,
-   angka skor besar bergaya papan skor, oranye hanya untuk hal yang sedang terjadi. */
+/* Industropolis Batang Futsal League — tampilan publik.
+   Konsep: hari pertandingan. Dasar putih kebiruan, header dan papan skor biru royal dengan cahaya oranye seperti flyer,
+   perisai emas-biru sebagai identitas, angka skor besar bergaya papan skor. */
 :root {
-  --ink: #0e1a33;
-  --ink-2: #44526e;
-  --ink-3: #7b87a0;
-  --paper: #f3f5f8;
+  /* Palet flyer versi cerah: dasar putih kebiruan, biru royal, oranye-merah, aksen emas perisai */
+  --ink: #0d2038;
+  --ink-2: #435a73;
+  --ink-3: #5f7389;
+  --paper: #fff;
+  --surface: #f4f6fb;
   --white: #fff;
   --rule: #d9dee8;
-  --court: #0b2a5b;
-  --court-2: #12397a;
-  --orange: #f47b12;
-  --orange-ink: #a64d00;
+  --court: #0b2a4a; /* sama dengan admin */
+  --night-1: #0a2038;
+  --night-2: #030b15;
+  --court-2: #1969b4;
+  --blue: #1969b4;
+  --blue-2: #2080d9;
+  --gold: #edbe6d;
+  --orange: #edbe6d;
+  --orange-ink: #7a5410;
+  --on-orange: #0a0e1c;
   --live: #d6212f;
   --win: #0b7a4b;
   --maxw: 1120px;
@@ -27,11 +35,11 @@ h1, h2, h3, p { margin: 0; }
 button { font: inherit; color: inherit; cursor: pointer; }
 img { max-width: 100%; display: block; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
-.skip { position: absolute; left: 8px; top: -60px; z-index: 100; background: var(--ink); color: #fff; padding: 10px 14px; }
+:focus-visible { outline: 3px solid var(--blue-2); outline-offset: 2px; box-shadow: 0 0 0 5px rgba(255,255,255,.85); }
+.skip { position: absolute; left: 8px; top: -60px; z-index: 100; background: var(--orange); color: var(--on-orange); font-weight: 700; padding: 10px 14px; }
 .skip:focus { top: 8px; }
 .muted { color: var(--ink-2); }
-.small { font-size: 13px; }
+.small { font-size: 14px; }
 .num { font-family: var(--font-d); font-variant-numeric: tabular-nums; }
 
 /* ---------- Bilah atas ---------- */
@@ -47,14 +55,14 @@ img { max-width: 100%; display: block; }
 .sitenav { display: none; position: absolute; left: 0; right: 0; top: 100%; background: var(--court); border-top: 1px solid rgba(255,255,255,.14); padding: 6px var(--pad) 18px; max-height: calc(100vh - 64px); overflow-y: auto; }
 .sitebar.open .sitenav { display: flex; flex-direction: column; }
 .sitenav a, .subbtn { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 4px; width: 100%; border: 0; background: none; text-align: left; font-size: 19px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.1); }
-.sitenav a.on, .has-sub.on > .subbtn { color: #ffb15c; }
+.sitenav a.on, .has-sub.on > .subbtn { color: #f2bd6b; }
 .caret { width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
 .has-sub.open .caret { transform: rotate(225deg); }
 .submenu { display: none; padding-left: 14px; }
 .has-sub.open .submenu { display: block; }
 .submenu a { font-size: 17px; font-weight: 500; min-height: 48px; }
-.sitenav a.navcta { margin-top: 14px; justify-content: center; background: var(--orange); color: var(--ink); font-weight: 700; border: 0; border-radius: 4px; }
-.scrim { position: fixed; inset: 0; z-index: 35; background: rgba(5,13,38,.55); }
+.sitenav a.navcta { margin-top: 14px; justify-content: center; background: var(--orange); color: var(--on-orange); font-weight: 700; border: 0; border-radius: 4px; }
+.scrim { position: fixed; inset: 0; z-index: 35; background: rgba(7,24,43,.55); }
 .scrim[hidden] { display: none; }
 body.menu-open { overflow: hidden; }
 
@@ -72,7 +80,7 @@ body.menu-open { overflow: hidden; }
   .submenu a { height: 46px; width: 100%; font-size: 16px; }
   .submenu a.on::after { display: none; }
   .sitenav a.navcta { margin: 10px 0 10px 14px; height: auto; padding: 0 18px; align-self: center; min-height: 40px; }
-  .sitenav a.navcta:hover { background: #ff9534; }
+  .sitenav a.navcta:hover { background: #f6d595; }
 }
 
 /* ---------- Tata letak umum ---------- */
@@ -80,17 +88,17 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 20px max(var(--pad), env
 main:focus { outline: none; }
 .loading, .empty { text-align: center; color: var(--ink-2); padding: 28px 12px; font-size: 15px; }
 .error-box { background: #fff1f1; border-left: 4px solid var(--live); color: #7a1018; padding: 12px 14px; font-size: 14px; margin-bottom: 12px; }
-.head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 28px 0 10px; padding-bottom: 8px; border-bottom: 2px solid var(--ink); }
+.head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 28px 0 10px; padding-bottom: 8px; border-bottom: 2px solid var(--orange); }
 .head:first-child { margin-top: 0; }
 .head h2 { font-family: var(--font-d); font-size: 26px; font-weight: 700; letter-spacing: .01em; line-height: 1.1; }
 .head a { font-size: 14px; font-weight: 600; color: var(--court-2); text-decoration: underline; text-underline-offset: 3px; }
 .sheet { background: var(--white); border: 1px solid var(--rule); }
 .sheet + .sheet { margin-top: 12px; }
 .pad { padding: 14px 16px; }
-.note { margin-top: 10px; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.note { margin-top: 10px; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
 
 /* ---------- Status ---------- */
-.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; white-space: nowrap; }
 .pill.live { color: #fff; background: var(--live); padding: 2px 9px; border-radius: 3px; }
 .pill.live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: blink 1.2s infinite; }
 .pill.pause { background: #8a5a00; }
@@ -101,9 +109,9 @@ main:focus { outline: none; }
 .chips { display: flex; gap: 6px; overflow-x: auto; padding: 0 0 12px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
 .chip { flex: none; min-height: 40px; padding: 0 16px; border: 1px solid var(--rule); background: var(--white); font-size: 15px; font-weight: 600; border-radius: 3px; }
-.chip.on { background: var(--court); border-color: var(--court); color: #fff; }
-span.chip { min-height: 0; padding: 1px 8px; font-size: 12px; font-weight: 600; color: var(--ink-2); background: none; }
-.btn { display: flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 18px; width: 100%; background: var(--court); color: #fff; font-weight: 700; border: 0; border-radius: 3px; }
+.chip.on { background: var(--blue); border-color: var(--blue-2); color: #fff; }
+span.chip { min-height: 0; padding: 1px 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); background: none; }
+.btn { display: flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 18px; width: 100%; background: var(--blue); color: #fff; font-weight: 700; border: 0; border-radius: 3px; }
 
 /* ---------- Lencana tim ---------- */
 .tbadge { width: 36px; height: 36px; border-radius: 50%; color: #fff; display: grid; place-items: center; font-family: var(--font-d); font-weight: 700; font-size: 15px; flex: none; overflow: hidden; }
@@ -114,7 +122,7 @@ span.chip { min-height: 0; padding: 1px 8px; font-size: 12px; font-weight: 600; 
 .tbadge.ph { background: #dde2ec; color: var(--ink-3); }
 /* Logo klub: tanpa lingkaran putih supaya perisai/oval tidak terpotong; file sumber 512 px jadi tajam di layar retina */
 .tbadge:has(> img) { background: none; border-radius: 0; overflow: visible; }
-.tbadge > img { background: none; padding: 0; filter: drop-shadow(0 1px 2px rgba(14,26,51,.25)); image-rendering: auto; }
+.tbadge > img { background: none; padding: 0; filter: drop-shadow(0 1px 2px rgba(13,32,56,.25)); image-rendering: auto; }
 .tbadge.sm > img { padding: 0; filter: none; }
 /* Logo sedikit lebih besar dari lingkaran singkatan supaya detailnya terbaca */
 /* Ukuran kotak sama dengan lingkaran singkatan (tinggi kartu tidak berubah); gambarnya saja yang diperbesar */
@@ -131,19 +139,19 @@ span.chip { min-height: 0; padding: 1px 8px; font-size: 12px; font-weight: 600; 
     radial-gradient(circle at center, transparent 0 86px, #fff 87px 89px, transparent 90px) center / 100% 100% no-repeat;
 }
 .board-in { position: relative; padding: 22px var(--pad) 20px; max-width: var(--maxw); margin: 0 auto; }
-.board-meta { text-align: center; font-size: 14px; color: #bcd0f5; }
+.board-meta { text-align: center; font-size: 14px; color: #bcd8f3; }
 .board-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin: 14px 0 6px; }
 .board-team { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; font-weight: 700; font-size: 17px; line-height: 1.15; min-width: 0; overflow-wrap: anywhere; }
 .board-num { font-family: var(--font-d); font-weight: 700; font-size: clamp(56px, 16vw, 112px); line-height: 1; letter-spacing: .02em; white-space: nowrap; }
-.board-num.vs { font-size: clamp(34px, 9vw, 56px); color: #8fb0ee; }
+.board-num.vs { font-size: clamp(34px, 9vw, 56px); color: #8fc0ee; }
 .board-foot { display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
-.board-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; background: var(--orange); color: var(--ink); font-weight: 700; border-radius: 3px; }
+.board-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; background: var(--orange); color: var(--on-orange); font-weight: 700; border-radius: 3px; }
 .board-link.ghost { background: none; border: 1px solid rgba(255,255,255,.5); color: #fff; }
 .board .pill.live { background: var(--live); }
 .board-idle { display: grid; gap: 14px; padding: 8px 0 4px; }
 .board-idle img { width: 92px; }
 .board-idle h1 { font-family: var(--font-d); font-size: clamp(34px, 8vw, 58px); font-weight: 700; line-height: 1.02; }
-.board-idle p { color: #cbdaf8; max-width: 52ch; }
+.board-idle p { color: #cbe0f6; max-width: 52ch; }
 .board-idle .acts { display: flex; gap: 10px; flex-wrap: wrap; }
 .board-tabs { display: flex; justify-content: center; gap: 6px; margin-top: 16px; }
 .board-tabs button { min-width: 36px; min-height: 36px; padding: 0; background: none; border: 0; position: relative; }
@@ -154,7 +162,7 @@ span.chip { min-height: 0; padding: 1px 8px; font-size: 12px; font-weight: 600; 
 .strip div { padding: 12px var(--pad); border-top: 1px solid var(--rule); }
 .strip div:nth-child(odd) { border-right: 1px solid var(--rule); }
 .strip div:nth-child(-n+2) { border-top: 0; }
-.strip small { display: block; font-size: 13px; color: var(--ink-3); }
+.strip small { display: block; font-size: 14px; color: var(--ink-3); }
 .strip b { font-size: 16px; font-weight: 600; }
 @media (min-width: 760px) {
   .strip { grid-template-columns: repeat(4, 1fr); }
@@ -162,13 +170,13 @@ span.chip { min-height: 0; padding: 1px 8px; font-size: 12px; font-weight: 600; 
   .strip div:last-child { border-right: 0; }
 }
 .banner-wrap { margin: -20px calc(50% - 50vw) 0; width: 100vw; }
-.announce { margin: 16px 0 0; padding: 14px 16px; background: #fff4e5; border-left: 5px solid var(--orange); }
+.announce { margin: 16px 0 0; padding: 14px 16px; background: #fdf6e4; border-left: 5px solid var(--orange); }
 .announce h3 { font-size: 17px; font-weight: 700; }
 .announce p { margin-top: 3px; font-size: 15px; white-space: pre-line; }
 .regbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 20px; margin-top: 16px; padding: 14px 16px; background: var(--white); border: 1px solid var(--rule); border-left: 5px solid var(--court-2); }
 .regbar b { display: block; font-size: 17px; }
 .regbar span { font-size: 14px; color: var(--ink-2); }
-.regbar a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; background: var(--orange); color: var(--ink); font-weight: 700; border-radius: 3px; }
+.regbar a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; background: var(--orange); color: var(--on-orange); font-weight: 700; border-radius: 3px; }
 
 .home-grid { display: block; }
 @media (min-width: 900px) { .home-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 0 36px; align-items: start; } }
@@ -177,15 +185,15 @@ span.chip { min-height: 0; padding: 1px 8px; font-size: 12px; font-weight: 600; 
 /* ---------- Baris laga ---------- */
 .mrow { display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 12px; padding: 12px 16px; min-height: 60px; border-top: 1px solid var(--rule); }
 .mrow:first-child { border-top: 0; }
-a.mrow:hover { background: #f7f9fc; }
+a.mrow:hover { background: #f4f7fd; }
 .mrow .when { font-family: var(--font-d); font-weight: 700; font-size: 22px; line-height: 1; }
-.mrow .when small { display: block; margin-top: 2px; font-family: var(--font); font-weight: 500; font-size: 12px; color: var(--ink-3); }
+.mrow .when small { display: block; margin-top: 2px; font-family: var(--font); font-weight: 500; font-size: 13px; color: var(--ink-3); }
 .mrow .vs { font-weight: 600; overflow-wrap: anywhere; }
 .mrow .vs b { font-family: var(--font-d); font-size: 20px; margin: 0 4px; }
-.mrow .sub { display: block; font-size: 13px; font-weight: 400; color: var(--ink-3); }
+.mrow .sub { display: block; font-size: 14px; font-weight: 400; color: var(--ink-3); }
 .res { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 12px 16px; min-height: 56px; border-top: 1px solid var(--rule); }
 .res:first-child { border-top: 0; }
-a.res:hover { background: #f7f9fc; }
+a.res:hover { background: #f4f7fd; }
 .res .tn { overflow-wrap: anywhere; color: var(--ink-2); }
 .res .tn.r { text-align: right; }
 .res .tn.win { color: var(--ink); font-weight: 700; }
@@ -207,7 +215,7 @@ a.res:hover { background: #f7f9fc; }
 
 /* ---------- Klasemen ---------- */
 table.std { width: 100%; border-collapse: collapse; font-size: 15px; }
-table.std th { font-size: 13px; font-weight: 600; color: var(--ink-3); text-align: center; padding: 10px 4px 8px; }
+table.std th { font-size: 14px; font-weight: 600; color: var(--ink-3); text-align: center; padding: 10px 4px 8px; }
 table.std th.tm, table.std td.tm { text-align: left; }
 table.std td { padding: 11px 4px; text-align: center; border-top: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
 table.std td.rank { width: 34px; position: relative; padding-left: 14px; text-align: left; color: var(--ink-3); }
@@ -226,13 +234,13 @@ table.std .opt { display: none; }
 .prow:first-of-type { border-top: 0; }
 .prow .n { font-family: var(--font-d); font-size: 20px; font-weight: 700; color: var(--ink-3); }
 .prow .who b { display: block; font-weight: 600; }
-.prow .who span { font-size: 13px; color: var(--ink-3); }
+.prow .who span { font-size: 14px; color: var(--ink-3); }
 .prow .v { font-family: var(--font-d); font-weight: 700; font-size: 28px; line-height: 1; }
-.prow .v small { font-family: var(--font); font-size: 13px; font-weight: 500; color: var(--ink-3); }
+.prow .v small { font-family: var(--font); font-size: 14px; font-weight: 500; color: var(--ink-3); }
 .sheet > h3 { font-family: var(--font-d); font-size: 22px; font-weight: 700; padding: 12px 16px 2px; }
 .sheet > .sub { padding: 0 16px 6px; font-size: 14px; color: var(--ink-2); }
 .tbl-sm { width: 100%; border-collapse: collapse; font-size: 14px; }
-.tbl-sm th { color: var(--ink-3); font-size: 13px; font-weight: 600; padding: 6px 8px; text-align: center; }
+.tbl-sm th { color: var(--ink-3); font-size: 14px; font-weight: 600; padding: 6px 8px; text-align: center; }
 .tbl-sm td { padding: 10px 8px; border-top: 1px solid var(--rule); text-align: center; }
 .tbl-sm td:first-child, .tbl-sm th:first-child { text-align: left; padding-left: 16px; }
 .stats-grid { display: grid; gap: 14px; }
@@ -255,7 +263,7 @@ details.team { background: var(--white); border: 1px solid var(--rule); margin-b
 details.team summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; min-height: 56px; cursor: pointer; font-weight: 600; }
 details.team summary::-webkit-details-marker { display: none; }
 details.team summary > span:nth-child(2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-details.team summary .c { color: var(--ink-3); font-size: 13px; font-weight: 500; flex: none; }
+details.team summary .c { color: var(--ink-3); font-size: 14px; font-weight: 500; flex: none; }
 details.team .roster { padding: 0 12px 10px; }
 .pl { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 15px; }
 .pl .no { font-family: var(--font-d); font-weight: 700; font-size: 18px; color: var(--ink-3); }
@@ -272,7 +280,7 @@ details.team .roster { padding: 0 12px 10px; }
 .bm { display: block; background: var(--white); border: 1px solid var(--rule); padding: 8px 12px 6px; position: relative; }
 a.bm:hover { border-color: var(--court-2); }
 .bm.final { border: 2px solid var(--court); }
-.bhead { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink-3); margin-bottom: 2px; }
+.bhead { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink-3); margin-bottom: 2px; }
 .bt { display: flex; align-items: center; gap: 8px; padding: 7px 0; min-width: 0; font-weight: 600; }
 .bt + .bt { border-top: 1px solid var(--rule); }
 .bt .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -280,7 +288,7 @@ a.bm:hover { border-color: var(--court-2); }
 .bt.lose .nm { color: var(--ink-3); font-weight: 400; }
 .bt.win .nm { font-weight: 700; }
 .bt .sc { font-family: var(--font-d); font-size: 22px; }
-.bnote { font-size: 12px; color: var(--ink-3); padding: 4px 0 2px; }
+.bnote { font-size: 13px; color: var(--ink-3); padding: 4px 0 2px; }
 @media (min-width: 700px) {
   .bracket { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; align-items: stretch; }
   .round { display: grid; grid-template-rows: auto 1fr; }
@@ -296,14 +304,14 @@ a.bm:hover { border-color: var(--court-2); }
 .scorebox { background: var(--court); color: #fff; padding: 16px var(--pad) 14px; position: relative; overflow: hidden; }
 .scorebox::before { content: ""; position: absolute; inset: 0; opacity: .12; pointer-events: none; background: linear-gradient(#fff,#fff) center / 2px 100% no-repeat; }
 .scorebox > * { position: relative; }
-.scorebox .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; color: #bcd0f5; }
+.scorebox .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; color: #bcd8f3; }
 .scorebox .teams { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin: 14px 0 8px; text-align: center; }
 .scorebox .tm { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
 .scorebox .tm b { font-size: 17px; line-height: 1.15; overflow-wrap: anywhere; }
 .scorebox .bigscore { font-family: var(--font-d); font-weight: 700; font-size: clamp(52px, 15vw, 96px); line-height: 1; white-space: nowrap; }
-.scorebox .bigscore.vs { font-size: 38px; color: #8fb0ee; }
-.scorebox .clockbig { text-align: center; font-family: var(--font-d); font-size: 22px; letter-spacing: .08em; color: #ffb15c; min-height: 26px; }
-.scorebox .scorers { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; border-top: 1px solid rgba(255,255,255,.2); margin-top: 10px; padding-top: 10px; font-size: 14px; color: #dbe6ff; min-height: 20px; }
+.scorebox .bigscore.vs { font-size: 38px; color: #8fc0ee; }
+.scorebox .clockbig { text-align: center; font-family: var(--font-d); font-size: 22px; letter-spacing: .08em; color: #f2bd6b; min-height: 26px; }
+.scorebox .scorers { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; border-top: 1px solid rgba(255,255,255,.2); margin-top: 10px; padding-top: 10px; font-size: 14px; color: #dbeaff; min-height: 20px; }
 .scorebox .scorers div:last-child { text-align: right; }
 .scorebox .scorers p { padding: 1px 0; }
 .tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--rule); margin: 0 0 14px; background: var(--white); }
@@ -313,7 +321,7 @@ a.bm:hover { border-color: var(--court-2); }
 .tl:first-of-type { border-top: 0; }
 .tl .min { font-family: var(--font-d); font-weight: 700; font-size: 20px; white-space: nowrap; }
 .tl .ev b { font-weight: 600; }
-.tl .ev small { display: block; color: var(--ink-3); font-size: 13px; }
+.tl .ev small { display: block; color: var(--ink-3); font-size: 14px; }
 .ico { width: 18px; height: 18px; display: inline-block; }
 .ico.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); margin: 0 5px; }
 .ico.yc, .ico.rc { width: 12px; height: 17px; border-radius: 2px; margin: 0 3px; }
@@ -330,9 +338,9 @@ a.bm:hover { border-color: var(--court-2); }
 .lp .no { font-family: var(--font-d); font-weight: 700; font-size: 20px; }
 .lp .badges { display: flex; gap: 4px; align-items: center; }
 .lp.sub { color: var(--ink-2); border-bottom: 0; padding: 7px 0; }
-.lu .sub-title { margin: 12px 0 2px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.lu .sub-title { margin: 12px 0 2px; font-size: 14px; font-weight: 600; color: var(--ink-3); }
 .lu-wait { padding: 4px 16px 16px; color: var(--ink-2); }
-.motm { margin-top: 14px; padding: 14px 16px; background: #fff4e5; border-left: 5px solid var(--orange); }
+.motm { margin-top: 14px; padding: 14px 16px; background: #fdf6e4; border-left: 5px solid var(--orange); }
 .motm .tag { font-size: 14px; font-weight: 700; color: var(--orange-ink); }
 .motm p.name { font-family: var(--font-d); font-size: 26px; font-weight: 700; line-height: 1.1; }
 .cmp { padding: 11px 16px; border-top: 1px solid var(--rule); }
@@ -343,7 +351,7 @@ a.bm:hover { border-color: var(--court-2); }
 .cmp .lab em { font-style: normal; color: var(--ink-2); font-size: 14px; align-self: center; }
 .cmp .bars { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .cmp .bar { height: 6px; background: #e6e9f0; display: flex; }
-.cmp .bar i { display: block; height: 100%; background: var(--court-2); }
+.cmp .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--blue-2)); }
 .cmp .bar.r i { background: var(--orange); }
 .cmp-teams { display: grid; grid-template-columns: 1fr 1fr; padding: 14px 16px 4px; font-weight: 700; }
 .cmp-teams span:last-child { text-align: right; }
@@ -351,7 +359,7 @@ a.bm:hover { border-color: var(--court-2); }
 .sponsors img { display: block; margin: 0 auto; height: auto; width: min(78%, 300px); max-width: 100%; object-fit: contain; }
 .sponsors hr { width: min(78%, 300px); border: 0; border-top: 1px solid #e3e6ec; margin: 0; }
 @media (min-width: 700px) { .sponsors { padding: 48px 24px; gap: 36px; } .sponsors img { width: min(46%, 420px); } .sponsors hr { width: min(46%, 420px); } }
-footer.foot { text-align: center; color: var(--ink-3); font-size: 13px; margin: 28px 8px 8px; line-height: 1.7; }
+footer.foot { text-align: center; color: var(--ink-3); font-size: 14px; margin: 28px 8px 8px; line-height: 1.7; }
 footer.foot a { text-decoration: underline; }
 
 /* ---------- Halaman laga: lebar dibatasi ---------- */
@@ -379,7 +387,7 @@ main[data-view="laga"] { max-width: 760px; }
 .gkrow b { text-align: right; }
 
 /* ---------- Ikon bola, tag P / OG ---------- */
-.ball { --b: #0e1a33; width: 18px; height: 18px; display: inline-block; vertical-align: middle; flex: none; }
+.ball { --b: #0d2038; width: 18px; height: 18px; display: inline-block; vertical-align: middle; flex: none; }
 .ball.og { --b: #d6212f; }
 .ball .bs { stroke: var(--b); stroke-width: 1.6; stroke-linecap: round; fill: none; }
 .ball .bf.bs { fill: #fff; }
@@ -395,12 +403,12 @@ main[data-view="laga"] { max-width: 760px; }
 
 /* ---------- Banner geser ---------- */
 .bn { margin-bottom: 6px; }
-.bn-view { position: relative; background: #f5f6fa; border: 1px solid var(--rule); }
+.bn-view { position: relative; background: #030b15; border: 1px solid var(--rule); }
 .bn-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x pan-y; }
 .bn-track::-webkit-scrollbar { display: none; }
 .bn-slide { flex: 0 0 100%; margin: 0; scroll-snap-align: center; scroll-snap-stop: always; cursor: zoom-in; }
-.bn-slide img { width: 100%; height: auto; aspect-ratio: 1200 / 570; object-fit: contain; background: #f5f6fa; user-select: none; -webkit-user-drag: none; }
-.bn-arrow { position: absolute; top: 50%; width: 44px; height: 44px; margin-top: -22px; border: 0; border-radius: 50%; background: rgba(11,42,91,.82); color: #fff; display: none; place-items: center; }
+.bn-slide img { width: 100%; height: auto; aspect-ratio: 1200 / 570; object-fit: contain; background: #030b15; user-select: none; -webkit-user-drag: none; }
+.bn-arrow { position: absolute; top: 50%; width: 44px; height: 44px; margin-top: -22px; border: 0; border-radius: 50%; background: rgba(25,105,180,.85); color: #fff; display: none; place-items: center; }
 .bn-arrow:hover { background: var(--court); }
 .bn-arrow::after { content: ""; width: 10px; height: 10px; border-top: 3px solid #fff; border-right: 3px solid #fff; }
 .bn-arrow.prev { left: 10px; } .bn-arrow.prev::after { transform: rotate(-135deg); margin-left: 4px; }
@@ -412,52 +420,52 @@ main[data-view="laga"] { max-width: 760px; }
 .bn-dots button { min-width: 36px; min-height: 36px; padding: 0; background: none; border: 0; position: relative; }
 .bn-dots button::after { content: ""; position: absolute; left: 8px; right: 8px; top: 16px; height: 4px; background: #c4cbdb; }
 .bn-dots button.on::after { background: var(--orange); }
-.bn-tip { font-size: 13px; color: var(--ink-3); margin-top: -4px; }
-.lb { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: rgba(5,13,38,.94); }
-.lb-x { align-self: flex-end; margin: 10px 12px 0; min-height: 44px; padding: 0 16px; border: 0; border-radius: 3px; background: var(--orange); color: var(--ink); font-weight: 700; }
+.bn-tip { font-size: 14px; color: var(--ink-3); margin-top: -4px; }
+.lb { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: rgba(7,24,43,.94); }
+.lb-x { align-self: flex-end; margin: 10px 12px 0; min-height: 44px; padding: 0 16px; border: 0; border-radius: 3px; background: var(--orange); color: var(--on-orange); font-weight: 700; }
 .lb-scroll { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 12px; }
-.lb-scroll img { margin: auto; flex: none; width: max(900px, min(100%, 1200px)); height: auto; background: #f5f6fa; }
+.lb-scroll img { margin: auto; flex: none; width: max(900px, min(100%, 1200px)); height: auto; background: #030b15; }
 body.lb-open { overflow: hidden; }
 
 /* ---------- Tambahan waktu & kiper terbaik ---------- */
 .scorebox .clockbig { white-space: nowrap; }
-.scorebox .addednote { text-align: center; margin-top: 2px; font-size: 14px; font-weight: 700; color: #ffd9a8; }
+.scorebox .addednote { text-align: center; margin-top: 2px; font-size: 14px; font-weight: 700; color: #f6e2b8; }
 .gkaward { padding: 16px; border-left: 5px solid var(--orange); }
 .gkaward.idle { padding: 14px 16px; } .gkaward.idle p { margin-top: 4px; font-size: 14px; }
-.gk-tag { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--orange-ink); }
+.gk-tag { display: inline-block; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--orange-ink); }
 .gk-who { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
 .gk-who .tmrow { display: flex; align-items: center; gap: 12px; }
 .gk-who h3 { font-family: var(--font-d); font-size: 28px; line-height: 1.05; }
 .gk-who p { font-size: 14px; color: var(--ink-2); }
-.gk-prog { font-size: 13px; font-weight: 700; padding: 4px 10px; background: #d8f1e3; color: #075c38; border-radius: 3px; }
+.gk-prog { font-size: 14px; font-weight: 700; padding: 4px 10px; background: #d8f1e3; color: #075c38; border-radius: 3px; }
 .gk-prog.out, .gk-out { background: #fde6e6; color: #a31622; }
 .gk-out { background: none; font-weight: 600; }
 .gk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
-.gk-grid > div { background: var(--paper); padding: 10px 8px; text-align: center; }
+.gk-grid > div { background: var(--surface); padding: 10px 8px; text-align: center; }
 .gk-grid b { display: block; font-family: var(--font-d); font-size: 30px; line-height: 1.05; }
-.gk-grid small { font-size: 12px; color: var(--ink-2); }
-.gkaward > .sub { padding: 10px 0 0; font-size: 13px; }
+.gk-grid small { font-size: 13px; color: var(--ink-2); }
+.gkaward > .sub { padding: 10px 0 0; font-size: 14px; }
 @media (min-width: 760px) { .stats-grid .gkaward { grid-column: 1 / -1; } .gk-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 
 
 /* ================= Tampilan halus: sudut membulat, bayangan lembut, animasi (selaras dengan panel admin) ================= */
-:root { --r-sm: 12px; --r: 16px; --r-lg: 22px; --shadow-1: 0 1px 2px rgba(14,26,51,.05), 0 6px 18px -6px rgba(14,26,51,.12); --shadow-2: 0 2px 4px rgba(14,26,51,.06), 0 16px 34px -10px rgba(14,26,51,.25); --ease: cubic-bezier(.22,.7,.2,1); }
-.sheet, .sponsors, .bn-view { border: 1px solid rgba(14,26,51,.06); border-radius: var(--r-lg); box-shadow: var(--shadow-1); overflow: hidden; }
-details.team, .bm { border: 1px solid rgba(14,26,51,.06); border-radius: 18px; box-shadow: var(--shadow-1); transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .2s; }
-@media (hover: hover) { details.team:hover, a.bm:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); border-color: rgba(244,123,18,.5); } }
-.livecard { border: 1px solid rgba(14,26,51,.06); border-radius: var(--r-lg); box-shadow: inset 5px 0 0 var(--live), var(--shadow-1); overflow: hidden; }
+:root { --r-sm: 12px; --r: 16px; --r-lg: 22px; --shadow-1: 0 1px 2px rgba(13,32,56,.05), 0 6px 18px -6px rgba(13,32,56,.12); --shadow-2: 0 2px 4px rgba(13,32,56,.06), 0 16px 34px -10px rgba(13,32,56,.25); --ease: cubic-bezier(.22,.7,.2,1); }
+.sheet, .sponsors, .bn-view { border: 1px solid rgba(13,32,56,.06); border-radius: var(--r-lg); box-shadow: var(--shadow-1); overflow: hidden; }
+details.team, .bm { border: 1px solid rgba(13,32,56,.06); border-radius: 18px; box-shadow: var(--shadow-1); transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .2s; }
+@media (hover: hover) { details.team:hover, a.bm:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); border-color: rgba(237,190,109,.5); } }
+.livecard { border: 1px solid rgba(13,32,56,.06); border-radius: var(--r-lg); box-shadow: inset 5px 0 0 var(--live), var(--shadow-1); overflow: hidden; }
 .announce, .motm { border-left: 0; border-radius: var(--r); box-shadow: inset 5px 0 0 var(--orange), var(--shadow-1); }
-.regbar { border: 1px solid rgba(14,26,51,.06); border-left-width: 1px; border-radius: var(--r-lg); box-shadow: inset 5px 0 0 var(--court-2), var(--shadow-1); }
+.regbar { border: 1px solid rgba(13,32,56,.06); border-left-width: 1px; border-radius: var(--r-lg); box-shadow: inset 5px 0 0 var(--court-2), var(--shadow-1); }
 .error-box { border-left: 0; border-radius: var(--r-sm); box-shadow: inset 4px 0 0 var(--live); }
 .chip { border-radius: 999px; transition: background .2s, color .2s, transform .18s var(--ease), box-shadow .25s; }
 .chip:active { transform: scale(.95); }
 /* Tombol: naik sedikit saat disorot, menekan saat diketuk, kilau lewat saat hover */
 .btn, .board-link, .regbar a, .sitenav a.navcta { position: relative; overflow: hidden; isolation: isolate; border-radius: var(--r); transition: transform .22s var(--ease), box-shadow .25s var(--ease), background-color .2s; -webkit-tap-highlight-color: transparent; }
 .btn::before, .board-link::before, .regbar a::before, .sitenav a.navcta::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.35) 50%, transparent 70%); transform: translateX(-130%); transition: transform .7s var(--ease); }
-.regbar a, .board-link, .sitenav a.navcta { box-shadow: 0 8px 18px -8px rgba(244,123,18,.85); }
+.regbar a, .board-link, .sitenav a.navcta { box-shadow: 0 8px 18px -8px rgba(237,190,109,.85); }
 @media (hover: hover) {
   .btn:hover, .board-link:hover, .regbar a:hover, .sitenav a.navcta:hover { transform: translateY(-2px); box-shadow: 0 14px 24px -10px rgba(11,42,91,.6); }
-  .regbar a:hover, .sitenav a.navcta:hover { box-shadow: 0 14px 26px -10px rgba(244,123,18,.95); }
+  .regbar a:hover, .sitenav a.navcta:hover { box-shadow: 0 14px 26px -10px rgba(237,190,109,.95); }
   .btn:hover::before, .board-link:hover::before, .regbar a:hover::before, .sitenav a.navcta:hover::before { transform: translateX(130%); }
 }
 .btn:active, .board-link:active, .regbar a:active, .sitenav a.navcta:active { transform: translateY(0) scale(.96); transition-duration: .09s; }
@@ -476,10 +484,10 @@ details.team, .bm { border: 1px solid rgba(14,26,51,.06); border-radius: 18px; b
 .sk-btn { border-radius: 16px; } .sk-tile { border-radius: 18px; } .sk-hero { border-radius: 22px; }
 .sk-t { border-radius: 12px; }
 .sk-col { flex: 1; min-width: 0; display: grid; gap: 8px; align-content: start; }
-.sk-panel { display: grid; gap: 14px; padding: 14px 18px; background: #fff; border-radius: 22px; box-shadow: 0 1px 2px rgba(14,26,51,.05), 0 6px 18px -6px rgba(14,26,51,.12); }
-.sk-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid rgba(14,26,51,.06); }
+.sk-panel { display: grid; gap: 14px; padding: 14px 18px; background: var(--white); border-radius: 22px; box-shadow: 0 1px 2px rgba(13,32,56,.05), 0 6px 18px -6px rgba(13,32,56,.12); }
+.sk-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid rgba(13,32,56,.06); }
 .sk-row:first-child { border-top: 0; }
-.sk-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #fff; border-radius: 18px; box-shadow: 0 1px 2px rgba(14,26,51,.05), 0 6px 18px -6px rgba(14,26,51,.12); }
+.sk-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--white); border-radius: 18px; box-shadow: 0 1px 2px rgba(13,32,56,.05), 0 6px 18px -6px rgba(13,32,56,.12); }
 .sk-card.v { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px 12px; border-radius: 22px; }
 .sk-top { display: flex; align-items: center; gap: 10px; }
 .sk-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
@@ -508,62 +516,62 @@ details.team, .bm { border: 1px solid rgba(14,26,51,.06); border-radius: 18px; b
 .board-idle .logo-ph { width: 92px; height: 92px; font-size: 18px; }
 
 /* ---------- Layar TV / proyektor (#/tv) ---------- */
-body.tv-mode { background: #071a3d; color: #fff; overflow: hidden; cursor: none; }
+body.tv-mode { background: #030b15; color: #fff; overflow: hidden; cursor: none; }
 .tv-mode .sitebar, .tv-mode .skip, .tv-mode .scrim, .tv-mode .foot { display: none !important; }
 .tv-mode #app { max-width: none !important; padding: 0 !important; margin: 0 !important; }
-.tv { height: 100vh; display: grid; grid-template-rows: auto 1fr auto auto; gap: 1.6vh; padding: 2.2vh 3vw; background: radial-gradient(120% 90% at 50% 40%, #12397a 0%, #0b2a5b 45%, #071a3d 100%); }
+.tv { height: 100vh; display: grid; grid-template-rows: auto 1fr auto auto; gap: 1.6vh; padding: 2.2vh 3vw; background: radial-gradient(80% 70% at 0% 100%, rgba(25,105,180,.65), transparent 70%), radial-gradient(70% 60% at 100% 100%, rgba(32,128,217,.55), transparent 70%), linear-gradient(160deg, #0f3a63, #08203a); }
 .tv-top { display: flex; justify-content: space-between; align-items: center; gap: 2vw; font-family: var(--font-d); font-size: clamp(18px, 3.4vh, 44px); letter-spacing: .06em; text-transform: uppercase; }
 .tv-brand { display: flex; align-items: center; gap: 1vw; font-weight: 700; }
 .tv-brand img, .tv-brand .logo-ph { width: 5.4vh; height: 5.4vh; font-size: 1.4vh; object-fit: contain; }
-.tv-label { color: #9fb6e8; text-align: center; flex: 1; }
-.tv-wall { color: #ffb15c; font-variant-numeric: tabular-nums; min-width: 8ch; text-align: right; }
+.tv-label { color: #9fc6e8; text-align: center; flex: 1; }
+.tv-wall { color: #f2bd6b; font-variant-numeric: tabular-nums; min-width: 8ch; text-align: right; }
 .tv-main { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 2vw; min-height: 0; }
 .tv-team { display: flex; flex-direction: column; align-items: center; gap: 2vh; text-align: center; font-family: var(--font-d); font-weight: 700; font-size: clamp(26px, 6.4vh, 96px); line-height: 1.05; overflow-wrap: anywhere; }
 .tv-team .tbadge.lg { width: min(24vh, 15vw); height: min(24vh, 15vw); font-size: min(8vh, 5vw); }
 .tv-mid { text-align: center; }
 .tv-score { font-family: var(--font-d); font-weight: 700; font-size: clamp(70px, 22vh, 320px); line-height: .9; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tv-score.vs { color: #6f94dc; font-size: clamp(56px, 17vh, 240px); }
-.tv-clock { font-family: var(--font-d); font-size: clamp(36px, 9.5vh, 150px); line-height: 1.1; color: #ffb15c; letter-spacing: .05em; font-variant-numeric: tabular-nums; min-height: 1.1em; }
+.tv-score.vs { color: #6fa6dc; font-size: clamp(56px, 17vh, 240px); }
+.tv-clock { font-family: var(--font-d); font-size: clamp(36px, 9.5vh, 150px); line-height: 1.1; color: #f2bd6b; letter-spacing: .05em; font-variant-numeric: tabular-nums; min-height: 1.1em; }
 .tv-status { margin-top: 1vh; }
 .tv-status .pill { font-size: clamp(18px, 3.8vh, 48px); padding: .12em .6em; }
-.tv-note { margin-top: 1vh; font-size: clamp(16px, 3.2vh, 40px); color: #cbdaf8; }
+.tv-note { margin-top: 1vh; font-size: clamp(16px, 3.2vh, 40px); color: #cbe0f6; }
 .tv-feed { background: rgba(255, 255, 255, .08); border-radius: 2vh; padding: 1.6vh 2vw; min-height: 11vh; max-height: 38vh; overflow: hidden; position: relative; }
 .tv-ev { display: flex; align-items: center; gap: 1.4vw; padding: .6vh 0; font-size: clamp(16px, 3.3vh, 42px); }
 .tv-ev + .tv-ev { border-top: 1px solid rgba(255, 255, 255, .14); }
-.tv-ev small { display: block; font-size: .7em; color: #9fb6e8; }
-.tv-min { font-family: var(--font-d); font-weight: 700; min-width: 5ch; color: #ffb15c; }
+.tv-ev small { display: block; font-size: .7em; color: #9fc6e8; }
+.tv-min { font-family: var(--font-d); font-weight: 700; min-width: 5ch; color: #f2bd6b; }
 .tv .ball { --b: #fff; width: 1.2em; height: 1.2em; }
 .tv .ball.og { --b: #ff9aa3; }
-.tv .ball .bf.bs { fill: #0b2a5b; }
+.tv .ball .bf.bs { fill: #05111f; }
 .tv .evtag { font-size: .45em; }
-.tv-empty, .tv-last { font-size: clamp(16px, 3.3vh, 42px); color: #cbdaf8; }
-.tv-last b { font-family: var(--font-d); color: #ffb15c; margin: 0 .4em; }
-.tv-h { font-family: var(--font-d); font-size: clamp(18px, 3.4vh, 44px); text-transform: uppercase; letter-spacing: .06em; color: #9fb6e8; margin-bottom: .8vh; }
+.tv-empty, .tv-last { font-size: clamp(16px, 3.3vh, 42px); color: #cbe0f6; }
+.tv-last b { font-family: var(--font-d); color: #f2bd6b; margin: 0 .4em; }
+.tv-h { font-family: var(--font-d); font-size: clamp(18px, 3.4vh, 44px); text-transform: uppercase; letter-spacing: .06em; color: #9fc6e8; margin-bottom: .8vh; }
 .tv-std table.std { font-size: clamp(13px, 2.2vh, 28px); color: #fff; }
-.tv-std table.std th { color: #9fb6e8; font-size: .8em; }
+.tv-std table.std th { color: #9fc6e8; font-size: .8em; }
 .tv-std table.std td { border-top-color: rgba(255, 255, 255, .14); padding: .35vh .4vw; }
-.tv-std table.std td.rank { color: #9fb6e8; }
+.tv-std table.std td.rank { color: #9fc6e8; }
 .tv-std table.std td.pts { font-size: 1.3em; }
 .tv-std table.std .opt { display: table-cell; }
 .tv-dots { position: absolute; right: 1.4vw; top: 1.2vh; display: flex; gap: .6vw; }
 .tv-dots i { width: 1.2vh; height: 1.2vh; border-radius: 50%; background: rgba(255, 255, 255, .3); }
-.tv-dots i.on { background: #ffb15c; }
+.tv-dots i.on { background: #f2bd6b; }
 .tv-solo > div { grid-column: 1 / -1; text-align: center; }
 .tv-solo h1 { font-family: var(--font-d); font-size: clamp(40px, 13vh, 200px); line-height: 1; }
 .tv-idle { grid-template-rows: auto 1fr auto auto; }
 
 /* TV: line up saat hitung mundur */
 .tv-lu2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3vw; }
-.tv-lucol h3 { font-family: var(--font-d); font-size: clamp(16px, 3vh, 40px); color: #ffb15c; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6vh; }
+.tv-lucol h3 { font-family: var(--font-d); font-size: clamp(16px, 3vh, 40px); color: #f2bd6b; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6vh; }
 .tv-lu { display: flex; align-items: center; gap: 1.2vw; font-size: clamp(13px, 2.4vh, 32px); padding: .2vh 0; border-top: 1px solid rgba(255, 255, 255, .14); }
-.tv-lu .no { font-family: var(--font-d); font-weight: 700; min-width: 2.2ch; text-align: right; color: #9fb6e8; }
+.tv-lu .no { font-family: var(--font-d); font-weight: 700; min-width: 2.2ch; text-align: right; color: #9fc6e8; }
 .tv-lu .nm { font-weight: 600; }
-.tv-lu .gk { font-family: var(--font-d); font-weight: 700; font-size: .7em; padding: 0 .5em; border: 2px solid #ffb15c; color: #ffb15c; border-radius: .3em; }
-.tv-sub { margin-top: .5vh; font-size: clamp(11px, 1.9vh, 24px); color: #9fb6e8; }
+.tv-lu .gk { font-family: var(--font-d); font-weight: 700; font-size: .7em; padding: 0 .5em; border: 2px solid #f2bd6b; color: #f2bd6b; border-radius: .3em; }
+.tv-sub { margin-top: .5vh; font-size: clamp(11px, 1.9vh, 24px); color: #9fc6e8; }
 
 /* Kapten */
 .badge-cap { background: var(--ink-2); color: #fff; border-color: var(--ink-2); margin-left: 4px; }
-.tv-lu .gk.cap { background: #ffb15c; color: #0b2a5b; }
+.tv-lu .gk.cap { background: #f2bd6b; color: #05111f; }
 
 /* TV: bar penyelenggara. Latar putih karena logo berwarna gelap. Gambarnya sama dengan blok penyelenggara di beranda (assets/logo-industropolis.png, logo-sez.png, logo-danantara.png). */
 .tv-sponsors { display: flex; align-items: center; justify-content: center; gap: 2.4vw; height: 7vh; padding: 0 2.4vw; background: #fff; border-radius: 1.6vh; }
@@ -572,27 +580,27 @@ body.tv-mode { background: #071a3d; color: #fff; overflow: hidden; cursor: none;
 
 /* TV: jadwal, hasil, statistik, banner */
 .tv-row { display: flex; align-items: center; gap: 2vw; font-size: clamp(14px, 2.7vh, 34px); padding: .5vh 0; border-top: 1px solid rgba(255, 255, 255, .14); }
-.tv-when { flex: 0 0 30%; color: #ffb15c; font-weight: 600; }
+.tv-when { flex: 0 0 30%; color: #f2bd6b; font-weight: 600; }
 .tv-teams { flex: 1; font-weight: 700; }
-.tv-teams i { font-style: normal; color: #9fb6e8; font-weight: 400; margin: 0 .3em; }
-.tv-teams b { font-family: var(--font-d); color: #ffb15c; margin: 0 .4em; }
-.tv-grp { color: #9fb6e8; font-size: .8em; text-align: right; }
-.tv-statcol h3 { font-family: var(--font-d); font-size: clamp(16px, 3vh, 40px); color: #ffb15c; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6vh; }
+.tv-teams i { font-style: normal; color: #9fc6e8; font-weight: 400; margin: 0 .3em; }
+.tv-teams b { font-family: var(--font-d); color: #f2bd6b; margin: 0 .4em; }
+.tv-grp { color: #9fc6e8; font-size: .8em; text-align: right; }
+.tv-statcol h3 { font-family: var(--font-d); font-size: clamp(16px, 3vh, 40px); color: #f2bd6b; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6vh; }
 .tv-pl { display: flex; justify-content: space-between; gap: 1vw; font-size: clamp(13px, 2.5vh, 32px); padding: .3vh 0; border-top: 1px solid rgba(255, 255, 255, .14); font-weight: 600; }
-.tv-pl small { color: #9fb6e8; font-weight: 400; margin-left: .4em; }
-.tv-pl b { font-family: var(--font-d); color: #ffb15c; }
+.tv-pl small { color: #9fc6e8; font-weight: 400; margin-left: .4em; }
+.tv-pl b { font-family: var(--font-d); color: #f2bd6b; }
 .tv-banner img { display: block; margin: 0 auto; max-width: 100%; max-height: 31vh; border-radius: 1vh; }
 
 /* ---------- Jam real-time (semua halaman) ---------- */
 .rtclock { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rtclock .rt-d { font-size: 11px; color: #a9bdea; font-weight: 500; }
-.rtclock .rt-t { font-family: var(--font-d); font-size: 20px; font-weight: 700; color: #ffb15c; letter-spacing: .04em; }
+.rtclock .rt-d { font-size: 11px; color: #a9cbea; font-weight: 500; }
+.rtclock .rt-t { font-family: var(--font-d); font-size: 20px; font-weight: 700; color: #f2bd6b; letter-spacing: .04em; }
 .rtclock.site { margin-left: auto; }
 @media (min-width: 900px) { .rtclock.site { margin-left: auto; margin-right: 8px; } .rtclock .rt-d { font-size: 12px; } .rtclock .rt-t { font-size: 22px; } }
 @media (max-width: 420px) { .rtclock .rt-d { font-size: 9.5px; } .rtclock .rt-t { font-size: 16px; } }
 .burger { flex: none; }
 .tv-top .rtclock.tvc { min-width: 8ch; }
-.tv-top .rtclock.tvc .rt-d { font-size: clamp(11px, 2vh, 26px); letter-spacing: .04em; color: #9fb6e8; text-transform: none; }
+.tv-top .rtclock.tvc .rt-d { font-size: clamp(11px, 2vh, 26px); letter-spacing: .04em; color: #9fc6e8; text-transform: none; }
 .tv-top .rtclock.tvc .rt-t { font-size: clamp(18px, 3.8vh, 50px); }
 
 /* ---------- TV saat menunggu laga: header laga berikutnya diperkecil, panel info bawah diperbesar ---------- */
@@ -623,9 +631,8 @@ body.tv-mode { background: #071a3d; color: #fff; overflow: hidden; cursor: none;
 /* sponsor TV: kotak putih kecil, rata kanan, tiga logo diseragamkan */
 .tv-sponsors { justify-self: end; width: fit-content; max-width: 100%; height: 4.6vh; padding: 0 1.4vw; gap: 1.2vw; border-radius: 1vh; }
 .tv-sponsors img { width: auto; max-width: none; object-fit: contain; }
-.tv-sponsors img[src*="industropolis"] { height: 3.3vh; }
-.tv-sponsors img[src*="sez"] { height: 3.1vh; }
-.tv-sponsors img[src*="danantara"] { height: 2.7vh; }
+/* ketiga logo sudah dipangkas rapat (tanpa ruang kosong), jadi cukup disamakan lebarnya; tingginya mengikuti bentuk masing-masing */
+.tv-sponsors img { width: 11vh; height: auto; max-width: none; }
 .tv-sponsors i { height: 2.6vh; }
 
 /* TV: semua slide bawah seragam (judul, ukuran huruf, posisi tengah, penunjuk slide) */
@@ -638,3 +645,168 @@ body.tv-mode { background: #071a3d; color: #fff; overflow: hidden; cursor: none;
 .tv-next .tv-std table.std td { padding: 1.2vh .5vw; }
 .tv-next .tv-dots { right: 2vw; top: 2vh; gap: .8vh; }
 .tv-next .tv-dots i { width: 1.4vh; height: 1.4vh; }
+
+
+/* ================= Tema flyer cerah ================= */
+:root { --r-sm: 12px; --r: 16px; --r-lg: 22px;
+  --shadow-1: 0 1px 2px rgba(13,32,56,.05), 0 6px 18px -6px rgba(13,32,56,.12);
+  --shadow-2: 0 2px 4px rgba(13,32,56,.06), 0 16px 34px -10px rgba(13,32,56,.25); }
+html { background: var(--paper); }
+body { position: relative; background: var(--paper); color: var(--ink); }
+/* Latar utama: putih polos. Warna tema (hitam kebiruan, cahaya biru dan oranye-merah, aksen emas) dipakai di bilah atas, hero, dan layar TV, sama dengan admin. */
+body:not(.tv-mode)::before { content: none; }
+::selection { background: var(--orange); color: var(--on-orange); }
+
+/* Bilah atas: gaya sama dengan menu samping admin */
+.sitebar { background: radial-gradient(45% 260% at 0% 100%, rgba(25,105,180,.6), transparent 70%), radial-gradient(40% 260% at 100% 100%, rgba(32,128,217,.45), transparent 70%), linear-gradient(170deg, #0f3a63, #08203a); box-shadow: 0 6px 20px -8px rgba(3,11,21,.6); }
+.sitebar::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, var(--gold), var(--orange)); }
+.sitebar-in { height: 64px; }
+.brand { gap: 10px; letter-spacing: 0; line-height: 1; }
+.brand img { width: 36px; height: 43px; object-fit: contain; filter: drop-shadow(0 2px 5px rgba(0,0,0,.35)); }
+.brand-t { display: flex; flex-direction: column; gap: 3px; text-transform: uppercase; }
+.brand-t b { font-family: var(--font); font-weight: 700; font-size: 15px; letter-spacing: .03em; color: #fff; white-space: nowrap; }
+.brand-t i { font-style: italic; font-weight: 500; font-size: 12px; letter-spacing: .08em; color: #d6e8ff; font-family: var(--font); white-space: nowrap; }
+@media (max-width: 380px) { .brand-t b { font-size: 13px; } .brand-t i { font-size: 10.5px; } }
+.sitenav { background: #07182b; }
+.submenu { background: #0f3a63 !important; }
+.sitenav a.on, .has-sub.on > .subbtn { color: #ffd58a; }
+.scrim { background: rgba(7,24,43,.55); }
+
+/* Kartu putih dengan bayangan biru lembut */
+.sheet, .sponsors, .bn-view, details.team, .bm, .livecard, .regbar { border-color: rgba(25,105,180,.10); }
+.sheet, details.team, .bm, .livecard, .sk-panel, .sk-card { background: #fff; }
+.regbar { background: linear-gradient(100deg, #e4edff, #fff 55%); box-shadow: inset 5px 0 0 var(--blue), var(--shadow-1); }
+.livecard { box-shadow: inset 5px 0 0 var(--live), var(--shadow-1); }
+.strip { background: #fff; }
+.tabs { background: #fff; }
+.tabs a.on { color: var(--ink); }
+.head h2 { color: var(--ink); }
+.head a, .back { color: var(--blue); }
+.error-box { background: #fff1f1; color: #7a1018; }
+.announce, .motm { background: #fdf6e4; color: var(--ink); }
+.announce h3 { color: #5c3f08; }
+.gk-grid > div { background: var(--surface); }
+.ball { --b: #0d2038; }
+.chip { background: #fff; color: var(--ink); }
+table.std tr.q td { background: rgba(237,190,109,.07); }
+
+/* Tombol */
+.btn { background: linear-gradient(135deg, var(--blue), #12508c); }
+.sitenav a.navcta, .board-link, .regbar a { background: linear-gradient(135deg, #f6d595, var(--orange) 55%, #dbb066); }
+.board-link.ghost { background: transparent; }
+
+/* Papan skor & hero: hitam kebiruan, cahaya biru kiri bawah dan oranye-merah kanan bawah (seperti flyer dan admin), tekstur jaring gawang halus */
+.board, .scorebox { background:
+    url(../assets/bg-arena.jpg) center 30% / cover,
+    radial-gradient(90% 90% at 0% 100%, rgba(25,105,180,.7), transparent 70%),
+    radial-gradient(80% 90% at 100% 100%, rgba(32,128,217,.5), transparent 70%),
+    linear-gradient(160deg, #0f3a63, #08203a);
+  background-blend-mode: soft-light, normal, normal, normal; }
+.board::before { opacity: .12; }
+.board-in { padding-top: 28px; padding-bottom: 26px; }
+.board-idle { justify-items: center; text-align: center; gap: 0; padding: 6px 0 2px; }
+.board-idle .idle-logo { width: clamp(92px, 24vw, 150px); height: auto; margin: 0 auto 14px; filter: drop-shadow(0 10px 22px rgba(11,42,74,.5)); }
+.board-idle h1 { font-family: var(--font); text-transform: uppercase; font-weight: 700; line-height: 1.05; letter-spacing: .01em; font-size: clamp(26px, 7vw, 52px); color: #fff; }
+.board-idle h1 em { display: block; margin-top: 6px; font-style: italic; font-weight: 500; font-size: .58em; letter-spacing: .06em; color: #e6f0ff; }
+.idle-facts { display: grid; grid-template-columns: repeat(3, auto); justify-content: center; margin: 22px 0 18px; border-top: 1px solid rgba(255,255,255,.8); border-bottom: 1px solid rgba(255,255,255,.8); }
+.idle-facts span { padding: 11px clamp(12px, 4vw, 40px); font-weight: 700; font-size: clamp(12px, 3.3vw, 16px); letter-spacing: .06em; text-transform: uppercase; color: #fff; white-space: nowrap; }
+.idle-facts span + span { border-left: 1px solid rgba(255,255,255,.8); }
+.idle-when { margin: 0 auto 18px; text-align: center; color: #fff; font-size: 15px; line-height: 1.5; }
+.idle-when i { display: block; color: #e6f0ff; font-size: 15px; }
+.idle-when b { font-weight: 700; letter-spacing: .02em; text-transform: uppercase; font-size: 14.5px; }
+.board-idle .acts { justify-content: center; }
+.board-meta, .scorebox .meta { color: #e6f0ff; }
+.board-num.vs, .scorebox .bigscore.vs { color: #cfe6ff; }
+
+/* Tampilan TV (layar besar): hitam kebiruan seperti flyer dan admin */
+.tv-brand { gap: 1.2vw; }
+.tv-brand img { width: 5.4vh; height: 6.5vh; object-fit: contain; }
+.tv-brand-t { display: flex; flex-direction: column; gap: .5vh; line-height: 1; }
+.tv-brand-t b { font-size: 2.5vh; letter-spacing: .04em; }
+.tv-brand-t i { font-size: 1.9vh; font-weight: 500; letter-spacing: .1em; color: #d6e8ff; }
+.tv-feed { background: rgba(11,42,74,.35); border: 1px solid rgba(255,255,255,.18); }
+.tv-sponsors { box-shadow: 0 0 0 1px rgba(255,255,255,.2); }
+.tv-top .rtclock .rt-t, .tv-clock { color: #ffd58a; }
+
+@media print { body::before { display: none; } body { background: #fff; color: #000; } }
+
+/* Video promo di banner geser, lightbox, dan layar TV */
+.bn-video { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 570; object-fit: cover; background: #030b15; }
+.lb-scroll .bn-video { margin: auto; flex: none; width: max(900px, min(100%, 1400px)); height: auto; }
+.tv-banner video { display: block; margin: 0 auto; max-width: 100%; max-height: 31vh; border-radius: 1vh; aspect-ratio: 1200 / 570; background: #030b15; }
+.tv-next .tv-banner video { max-height: 100%; max-width: 100%; object-fit: contain; }
+
+/* Klasemen satu layar: 4 grup dalam grid 2 x 2 (diletakkan paling bawah agar menang atas aturan .tv-next lain) */
+.tv .tv-std4 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2vh 2.6vw; }
+.tv .tv-std4 .tv-std h4 { font-family: var(--font-d); font-size: clamp(13px, 2.4vh, 32px); text-transform: uppercase; letter-spacing: .08em; color: #f2bd6b; margin: 0 0 .2vh; }
+.tv .tv-std4 .tv-std table.std { font-size: clamp(11px, 2vh, 26px); }
+.tv .tv-std4 .tv-std table.std th { padding: .2vh .3vw; }
+.tv .tv-std4 .tv-std table.std td { padding: .3vh .3vw; }
+.tv .tv-std4 .tv-std table.std .opt { display: none; }
+.tv .tv-std4 .tv-std .tmrow .tbadge { width: 2.6vh; height: 2.6vh; font-size: 1vh; }
+
+/* Video TV satu layar penuh */
+.tv.tv-fullvideo { display: block; padding: 0; background: #030b15; overflow: hidden; }
+.tv-fullvideo video { display: block; width: 100vw; height: 100vh; object-fit: contain; background: #030b15; }
+
+/* Pergantian layar TV yang halus: isi memudar keluar (latar tetap), layar baru memudar masuk, video tampil setelah siap */
+.tv > * { transition: opacity .55s ease; }
+.tv.tv-out > * { opacity: 0; }
+.tv.tv-in { animation: tvIn .6s ease both; }
+@keyframes tvIn { from { opacity: 0; } to { opacity: 1; } }
+.tv-fullvideo video { opacity: 0; transition: opacity .6s ease; }
+.tv-fullvideo video.ready { opacity: 1; }
+.tv.tv-fullvideo.tv-out video.ready { opacity: 0; }
+.tv-fullvideo video.cover { object-fit: cover; }
+
+/* Foto di hero beranda dan hero detail laga (foto dari flyer): gelap di atas supaya teks tetap terbaca di semua ukuran layar */
+.board, .scorebox { background-color: #030b15; background-repeat: no-repeat; background-blend-mode: normal; }
+.board { background-image:
+    linear-gradient(180deg, rgba(3,11,21,.5), rgba(3,11,21,.72)),
+    radial-gradient(90% 100% at 0% 100%, rgba(25,105,180,.62), transparent 70%),
+    radial-gradient(80% 100% at 100% 100%, rgba(32,128,217,.5), transparent 70%),
+    url(../assets/bg-hero.jpg);
+  background-size: auto, auto, auto, cover; background-position: center, center, center, center 40%; }
+.scorebox { background-image:
+    linear-gradient(180deg, rgba(3,11,21,.62), rgba(3,11,21,.8)),
+    radial-gradient(90% 100% at 0% 100%, rgba(25,105,180,.55), transparent 70%),
+    radial-gradient(80% 100% at 100% 100%, rgba(32,128,217,.42), transparent 70%),
+    url(../assets/bg-match.jpg);
+  background-size: auto, auto, auto, cover; background-position: center, center, center, center 45%; }
+@media (max-width: 600px) and (orientation: portrait) { .board { background-image:
+    linear-gradient(180deg, rgba(3,11,21,.55), rgba(3,11,21,.78)),
+    radial-gradient(90% 100% at 0% 100%, rgba(25,105,180,.62), transparent 70%),
+    radial-gradient(80% 100% at 100% 100%, rgba(32,128,217,.5), transparent 70%),
+    url(../assets/bg-hero-m.jpg); background-position: center, center, center, center 30%; } }
+.board-in, .scorebox > * { text-shadow: 0 1px 10px rgba(0,0,0,.45); }
+
+/* ---------- Galeri foto beranda ----------
+   Satu kisi untuk 8 foto. Foto sumber berbentuk potret, jadi kotaknya juga potret (4:5) supaya tidak dipotong berlebihan dan tetap tajam.
+   HP: 2 kolom. Tablet dan laptop: 4 kolom, foto utama besar (2 x 2) di kiri atas, foto arena lebar di baris bawah. */
+.gallery { display: grid; gap: clamp(8px, 1.4vw, 14px); margin-bottom: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gallery figure { position: relative; margin: 0; overflow: hidden; border-radius: var(--r-lg); box-shadow: var(--shadow-1); background: #0a2038; isolation: isolate; min-width: 0; aspect-ratio: 4 / 5; }
+.gallery img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: auto; transition: transform .6s var(--ease); }
+/* Lapisan gelap tipis hanya di bagian bawah supaya keterangan terbaca; foto tetap terlihat jernih (tanpa semburat warna) */
+.gallery figure::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(to top, rgba(7,24,43,.82) 0%, rgba(7,24,43,.35) 24%, transparent 46%); }
+.gallery figcaption { position: absolute; left: 14px; right: 14px; bottom: 12px; z-index: 2; color: #fff; font-weight: 700; font-size: clamp(13px, 3.4vw, 15px); line-height: 1.2; letter-spacing: .05em; text-transform: uppercase; text-shadow: 0 1px 8px rgba(0,0,0,.6); padding-top: 8px; }
+.gallery figcaption::before { content: ""; display: block; width: 28px; height: 3px; margin-bottom: 7px; border-radius: 2px; background: var(--gold); }
+.gallery .g-main { grid-column: 1 / -1; aspect-ratio: 4 / 5; }
+.gallery .g-arena { grid-column: 1 / -1; aspect-ratio: 16 / 10; }
+.gallery .g-main img { object-position: 50% 60%; }
+.gallery .g-wasit img { object-position: 78% 35%; }
+.gallery .g-gol img { object-position: 40% 55%; }
+.gallery .g-tim img { object-position: 50% 38%; }
+.gallery .g-sup img { object-position: 50% 40%; }
+.gallery .g-arena img { object-position: 50% 58%; }
+.gallery .g-kick img { object-position: 50% 48%; }
+.gallery .g-siap img { object-position: 50% 62%; }
+@media (min-width: 600px) {
+  .gallery { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .gallery .g-main { grid-column: span 2; grid-row: span 2; aspect-ratio: auto; }
+  .gallery .g-arena { grid-column: span 2; aspect-ratio: auto; }
+  .gallery .g-main figcaption { font-size: 17px; left: 20px; bottom: 18px; }
+}
+/* Baris bawah: arena lebar + dua foto potret dengan tinggi sama */
+@media (min-width: 600px) { .gallery .g-arena, .gallery .g-kick, .gallery .g-siap { aspect-ratio: auto; } .gallery .g-arena { min-height: 0; } .gallery { grid-auto-rows: auto; } .gallery .g-kick, .gallery .g-siap { aspect-ratio: 4 / 5; } .gallery .g-arena { align-self: stretch; } }
+@media (hover: hover) { .gallery figure:hover img { transform: scale(1.04); } }
+@media (prefers-reduced-motion: reduce) { .gallery img { transition: none; } }

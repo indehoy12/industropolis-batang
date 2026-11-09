@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Industropolis Futsal League 2026
+// Industropolis Batang Futsal League 2026
 // - Siapa pun boleh MEMBACA (website publik).
 // - Hanya akun admin yang boleh MENULIS, dikenali lewat UID (bukan email, supaya
 //   tidak terbaca di repositori publik). Cara mencari UID: Firebase Console ->

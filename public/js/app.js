@@ -1,4 +1,4 @@
-// Website publik IFL 2026: router hash + tampilan realtime.
+// Website publik Industropolis Batang Futsal League: router hash + tampilan realtime.
 import { state, startStore, onChange, isReady } from "./store.js";
 import {
   TOURNAMENT, STAGES, esc, timeStr, dayLong, dayShort, dayKey, toDate, sortByKickoff,
@@ -90,6 +90,7 @@ const openTeams = new Set();
 let scrolledJadwal = false;
 let lastKey = "";
 let lastHtml = "";
+let tvEnter = false; // true: layar TV baru memudar masuk
 // Skeleton shimmer sekilas tiap pindah halaman (selain saat data belum siap)
 let skelOn = false, skelTimer;
 const SKEL_KIND = { home: "home", laga: "detail", tim: "grid" };
@@ -142,6 +143,22 @@ const sponsors = `<div class="sponsors">
   <img src="assets/logo-danantara.png" alt="Danantara Indonesia Sovereign Fund">
 </div>`;
 
+const gallery = `<div class="gallery">
+  <figure class="g-main"><img src="assets/foto/foto-laga-indoprowel.jpg" alt="Pemain Indoprowel merayakan gol di lapangan futsal Industropolis Batang" width="2000" height="2500" loading="lazy" decoding="async"><figcaption>Suasana laga di lapangan Industropolis Batang</figcaption></figure>
+  <figure class="g-wasit"><img src="assets/foto/wasit-salaman.jpg" alt="Kapten tim dan wasit berjabat tangan sebelum pertandingan" width="1600" height="2000" loading="lazy" decoding="async"><figcaption>Sportivitas</figcaption></figure>
+  <figure class="g-gol"><img src="assets/foto/jaring-gawang.jpg" alt="Bola futsal tersangkut di jaring gawang" width="1600" height="2000" loading="lazy" decoding="async"><figcaption>Gol!</figcaption></figure>
+  <figure class="g-tim"><img src="assets/foto/tim-foto.jpg" alt="Para pemain berpose bersama sebelum pertandingan" width="1600" height="2000" loading="lazy" decoding="async"><figcaption>Satu tim</figcaption></figure>
+  <figure class="g-sup"><img src="assets/foto/suporter.jpg" alt="Suporter membawa thunderstick merah mendukung timnya" width="1600" height="2000" loading="lazy" decoding="async"><figcaption>Suporter</figcaption></figure>
+  <figure class="g-arena"><img src="assets/foto/arena-udara.jpg" alt="Foto udara lapangan Sagara Futsal Arena di KEK Industropolis Batang" width="2000" height="1250" loading="lazy" decoding="async"><figcaption>Sagara Futsal Arena</figcaption></figure>
+  <figure class="g-kick"><img src="assets/foto/bola-garis.jpg" alt="Bola futsal di atas garis lapangan" width="1600" height="2000" loading="lazy" decoding="async"><figcaption>Kick off</figcaption></figure>
+  <figure class="g-siap"><img src="assets/foto/bola-lapangan.jpg" alt="Bola futsal di tengah lapangan, penonton menunggu di balik pagar" width="1600" height="2000" loading="lazy" decoding="async"><figcaption>Siap bertanding</figcaption></figure>
+</div>`;
+
+// Bilah atas (HTML statis di index.html) mengikuti TOURNAMENT supaya nama cukup diubah di util.js
+document.querySelectorAll(".brand-t b").forEach((el) => { el.textContent = TOURNAMENT.line1; });
+document.querySelectorAll(".brand-t i").forEach((el) => { el.textContent = TOURNAMENT.line2; });
+document.querySelector(".brand")?.setAttribute("aria-label", `${TOURNAMENT.name}, ke beranda`);
+
 const footer = `<footer class="foot">${TOURNAMENT.name} · ${TOURNAMENT.venue}<br><a href="admin/">Login panitia</a></footer>`;
 const dateRange = "20 Nov – 4 Des 2026";
 
@@ -154,9 +171,10 @@ function boardItems(live, next) {
 function boardView(items) {
   if (!items.length) {
     return `<div class="board-in"><div class="board-idle">
-      <img src="assets/logo.png" alt="" data-sitelogo>
-      <h1>${esc(TOURNAMENT.name)}</h1>
-      <p>${dateRange}, ${esc(TOURNAMENT.venue)}. Skor langsung, jadwal, klasemen, dan statistik pemain ada di halaman ini.</p>
+      <img class="idle-logo" src="assets/logo.png" alt="Logo ${esc(TOURNAMENT.name)}" width="150" height="181" data-sitelogo>
+      <h1>${esc(TOURNAMENT.line1)}<em>${esc(TOURNAMENT.line2)}</em></h1>
+      <div class="idle-facts"><span>16 Team</span><span>League System</span><span>31 Match</span></div>
+      <p class="idle-when"><i>${dateRange}</i><b>${esc(TOURNAMENT.tagline)}</b></p>
       <div class="acts"><a class="board-link" href="#/jadwal">Lihat jadwal</a><a class="board-link ghost" href="#/klasemen">Klasemen</a></div>
     </div></div>`;
   }
@@ -185,7 +203,7 @@ function homeView() {
   const standings = computeStandings(state.teams, matches, state.events);
   const groups = groupsOf(standings);
   if (!homeGroup || !standings[homeGroup]) homeGroup = live[0]?.group && standings[live[0].group] ? live[0].group : groups[0];
-  const stats = computePlayerStats(state.players, state.events);
+  const stats = computePlayerStats(state.players, state.events, state.teams, state.matches);
   const a = settings.announcement;
   const st = registrationState();
 
@@ -218,6 +236,7 @@ function homeView() {
   h += `<div class="head"><h2>Statistik pemain</h2><a href="#/statistik">Selengkapnya</a></div>${statTiles(stats)}`;
   h += "</div></div>";
   h += `<div class="head"><h2>Info turnamen</h2></div><div id="bn-slot"></div>`;
+  h += `<div class="head"><h2>Suasana turnamen</h2></div>${gallery}`;
   h += `<div class="head"><h2>Penyelenggara</h2></div>${sponsors}${footer}`;
   return h;
 }
@@ -317,7 +336,7 @@ function baganView() {
     return w ? state.teamById[w === "A" ? b.final.teamA : b.final.teamB] : null;
   })();
   return `<div class="head"><h2>Bagan babak gugur</h2></div>
-  ${champ ? `<div class="champ"><span>Juara IFL 2026</span><div class="tmrow">${badge(champ)}<b>${esc(champ.name)}</b></div></div>` : ""}
+  ${champ ? `<div class="champ"><span>Juara IBFL 2026</span><div class="tmrow">${badge(champ)}<b>${esc(champ.name)}</b></div></div>` : ""}
   ${empty ? `<p class="note" style="margin:0 0 10px">Jadwal babak gugur belum dibuat. Pasangan terisi otomatis setelah fase grup selesai.</p>` : ""}
   <div class="bracket" role="group" aria-label="Bagan perempat final, semifinal, dan final">
     <section class="round r-qf" aria-label="Perempat final"><h3>Perempat final</h3><div class="rc">${b.qf.map((s) => bracketCard(s)).join("")}</div></section>
@@ -347,7 +366,7 @@ function keeperAward(gk) {
     <p class="sub">Dipilih panitia.${d.rank ? ` Peringkat ${d.rank} dari ${d.total} kiper menurut clean sheet.` : ""}${cards} Dihitung dari kiper di susunan inti laga selesai; gol adu penalti tidak dihitung.</p></div>`;
 }
 function statistikView() {
-  const stats = computePlayerStats(state.players, state.events);
+  const stats = computePlayerStats(state.players, state.events, state.teams, state.matches);
   const keepers = computeKeeperStats(state.players, state.matches, state.teams, state.events).slice(0, 10);
   const gk = state.playerById[state.settings.bestGkId];
   const carded = stats.filter((p) => p.yellow + p.red > 0).sort((a, b) => b.red - a.red || b.yellow - a.yellow).slice(0, 8);
@@ -488,18 +507,28 @@ function matchView(r) {
 }
 
 // ---------- Banner geser (otomatis + bisa digeser) ----------
+/** Video tanpa suara, berulang. Pengunjung yang meminta gerak dikurangi hanya melihat gambar pembuka. */
+function mediaVideo(b, controls) {
+  const play = controls || !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return `<video class="bn-video" src="${b.video}" poster="${b.src}" width="1920" height="912" muted loop playsinline preload="${play ? "auto" : "none"}" ${play ? "autoplay" : ""} ${controls ? "controls" : ""} aria-label="${esc(b.alt)}"></video>`;
+}
 const BANNERS = [
-  { src: "assets/banner-1.jpg", title: "Format dan timeline event", alt: "16 tim bertanding dalam 31 laga: 4 grup, 3 matchday, dan timeline event dari 9 November sampai 6 Desember 2026" },
-  { src: "assets/banner-2.jpg", title: "Jadwal babak grup", alt: "Jadwal babak grup Matchday 1 sampai 3, pukul 18.00 sampai 21.20 WIB, pada 20, 26, dan 27 November" },
-  { src: "assets/banner-3.jpg", title: "Bagan babak gugur", alt: "Bagan babak gugur 3 sampai 4 Desember: perempat final, semifinal, dan final" },
+  { video: "assets/promo.mp4", src: "assets/promo-poster.jpg", tvVideo: "assets/promo-tv-1.mp4", tvSrc: "assets/promo-tv-1-poster.jpg", dur: 8, title: "Video Industropolis Batang Futsal League", alt: "Video pembuka Industropolis Batang Futsal League: 16 team, league system, 31 match, November sampai Desember 2026, khusus karyawan tenant Industropolis Batang" },
+  { video: "assets/promo-banner-2.mp4", src: "assets/promo-banner-2.jpg", tvVideo: "assets/promo-tv-2.mp4", tvSrc: "assets/promo-tv-2-poster.jpg", dur: 15, title: "Jadwal babak grup", alt: "Video jadwal babak grup: Matchday 1 sampai 3 pada 20, 26, dan 27 November, sesi 1 Grup A dan B, sesi 2 Grup C dan D, pukul 18.00 sampai 21.20 WIB, beserta susunan laga" },
+  { video: "assets/promo-banner-3.mp4", src: "assets/promo-banner-3.jpg", tvVideo: "assets/promo-tv-3.mp4", tvSrc: "assets/promo-tv-3-poster.jpg", dur: 15, title: "Bagan babak gugur", alt: "Video bagan babak gugur 3 sampai 4 Desember: perempat final, semifinal, dan final" },
 ];
-const BN = { idx: 0, hold: 0, hover: false };
+const BN = { idx: 0, hold: 0, hover: false, at: Date.now() };
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 let bannerEl = null;
 const bnTrack = () => bannerEl?.querySelector(".bn-track");
 
 function bnSync() {
   if (!bannerEl) return;
+  BN.at = Date.now();
+  bannerEl.querySelectorAll(".bn-slide video").forEach((v, i) => { // hanya slide yang tampil yang diputar, mulai dari awal
+    if (i === BN.idx) { if (v.paused || v.dataset.on !== "1") { try { v.currentTime = 0; } catch {} v.play?.().catch(() => {}); } v.dataset.on = "1"; }
+    else { v.pause?.(); v.dataset.on = "0"; }
+  });
   bannerEl.querySelectorAll(".bn-dots button").forEach((d, i) => {
     d.classList.toggle("on", i === BN.idx);
     d.setAttribute("aria-current", String(i === BN.idx));
@@ -520,7 +549,7 @@ function buildBanner() {
   el.setAttribute("aria-label", "Informasi turnamen");
   el.innerHTML = `<div class="bn-view">
     <div class="bn-track" tabindex="0" aria-label="Geser untuk melihat info lainnya">${BANNERS.map((b, i) =>
-      `<figure class="bn-slide" role="group" aria-roledescription="slide" aria-label="${i + 1} dari ${BANNERS.length}"><img src="${b.src}" alt="${esc(b.alt)}" width="1200" height="570" draggable="false"></figure>`).join("")}</div>
+      `<figure class="bn-slide" role="group" aria-roledescription="slide" aria-label="${i + 1} dari ${BANNERS.length}">${b.video ? mediaVideo(b, false) : `<img src="${b.src}" alt="${esc(b.alt)}" width="1200" height="570" draggable="false">`}</figure>`).join("")}</div>
     <button type="button" class="bn-arrow prev" data-bn="prev" aria-label="Slide sebelumnya"></button>
     <button type="button" class="bn-arrow next" data-bn="next" aria-label="Slide berikutnya"></button>
   </div>
@@ -560,6 +589,7 @@ setInterval(() => {
   if (!bannerEl || !bannerEl.isConnected || reduceMotion.matches || document.hidden || BN.hover || Date.now() < BN.hold) return;
   const r = bannerEl.getBoundingClientRect();
   if (r.bottom < 0 || r.top > window.innerHeight) return;
+  if (BANNERS[BN.idx].video && Date.now() - BN.at < ((BANNERS[BN.idx].dur || 8) + 1.5) * 1000) return; // biarkan video selesai satu putaran
   bnGo(BN.idx + 1);
 }, 5000);
 window.addEventListener("resize", () => { if (bannerEl?.isConnected) bnGo(BN.idx, false); });
@@ -573,7 +603,7 @@ function openLightbox(i) {
   lb.setAttribute("role", "dialog");
   lb.setAttribute("aria-modal", "true");
   lb.setAttribute("aria-label", b.title);
-  lb.innerHTML = `<button type="button" class="lb-x">Tutup ✕</button><div class="lb-scroll"><img src="${b.src}" alt="${esc(b.alt)}"></div>`;
+  lb.innerHTML = `<button type="button" class="lb-x">Tutup ✕</button><div class="lb-scroll">${b.video ? mediaVideo(b, true) : `<img src="${b.src}" alt="${esc(b.alt)}">`}</div>`;
   document.body.appendChild(lb);
   document.body.classList.add("lb-open");
   const close = () => {
@@ -662,6 +692,7 @@ function render() {
   $app.dataset.view = r.name;
   document.body.classList.toggle("tv-mode", r.name === "tv");
   tvWake(r.name === "tv");
+  if (r.name === "tv") tvWarm();
   if (isReady()) {
     const b = computeBracket(state.teams, state.matches, state.events);
     slotByMatch = new Map([...b.qf, ...b.sf, b.final, ...(b.third ? [b.third] : [])].filter((x) => x.match).map((x) => [x.match.id, x]));
@@ -689,6 +720,8 @@ function render() {
     const routeChanged = key !== lastKey;
     $app.innerHTML = html;
     mountBanner();
+    if (r.name === "tv") setTimeout(() => $app.querySelector(".tv-fullvideo video")?.classList.add("ready"), 2500); // jaga-jaga bila peristiwa "playing" tidak datang
+    if (tvEnter && r.name === "tv") { $app.querySelector(".tv")?.classList.add("tv-in"); tvEnter = false; }
     if (routeChanged) { window.scrollTo(0, 0); scrolledJadwal = false; }
     lastHtml = html; lastKey = key;
   }
@@ -723,9 +756,9 @@ document.addEventListener("click", (e) => {
 
 
 // ---------- Layar TV / proyektor (#/tv) ----------
-// Tanpa menu, huruf besar, skor + jam + kejadian terbaru. Beberapa laga live: bergantian tiap 12 detik.
+// Tanpa menu, huruf besar, skor + jam + kejadian terbaru. Beberapa laga live: bergantian tiap 15 detik.
 let tvIdx = 0;
-const tvTop = (label) => `<header class="tv-top"><span class="tv-brand"><img src="assets/logo.png" alt="" data-sitelogo>IFL 2026</span><span class="tv-label">${label}</span>${rtClockHtml("tvc")}</header>`;
+const tvTop = (label) => `<header class="tv-top"><span class="tv-brand"><img src="assets/logo.png" alt="" data-sitelogo><span class="tv-brand-t"><b>${esc(TOURNAMENT.line1.toUpperCase())}</b><i>${esc(TOURNAMENT.line2.toUpperCase())}</i></span></span><span class="tv-label">${label}</span>${rtClockHtml("tvc")}</header>`;
 const tvSponsors = `<footer class="tv-sponsors"><img src="assets/logo-industropolis.png" alt="Industropolis Batang"><i></i><img src="assets/logo-sez.png" alt="Indonesia SEZ"><i></i><img src="assets/logo-danantara.png" alt="Danantara Indonesia"></footer>`;
 const tvTeam = (m, side) => `<div class="tv-team">${badge(state.teamById[side === "A" ? m.teamA : m.teamB], false, "lg")}<b>${esc(sideName(m, side))}</b></div>`;
 // Line up untuk layar TV: inti (kiper di atas), cadangan satu baris. Null bila salah satu tim belum diisi.
@@ -742,7 +775,7 @@ function tvLineup(m) {
   };
   return `<h3 class="tv-h">Line up</h3><div class="tv-lu2">${col("A")}${col("B")}</div>`;
 }
-let tvPane = 0; // nomor bagian bawah layar; naik tiap 12 detik saat tidak ada laga live
+let tvPane = 0; // nomor bagian bawah layar; naik tiap 15 detik (sama dengan durasi video TV) saat tidak ada laga live
 const tvRows = (title, rows) => `<h3 class="tv-h">${title}</h3>${rows}`;
 const tvSchedule = (list) => tvRows("Jadwal berikutnya", list.map((m) => `<div class="tv-row"><span class="tv-when">${m.kickoff ? `${esc(dayLong(m.kickoff).replace(/\s\d{4}$/, ""))}, ${esc(timeStr(m.kickoff))}` : "Waktu akan ditentukan"}</span><span class="tv-teams">${esc(sideName(m, "A"))} <i>vs</i> ${esc(sideName(m, "B"))}</span><span class="tv-grp">${matchLabel(m)}</span></div>`).join(""));
 const tvResults = (list) => tvRows("Hasil terakhir", list.map((m) => `<div class="tv-row"><span class="tv-when">${matchLabel(m)}</span><span class="tv-teams">${esc(sideName(m, "A"))} <b>${scoreText(m)}</b> ${esc(sideName(m, "B"))}${penNote(m)}</span></div>`).join(""));
@@ -754,23 +787,28 @@ function tvStats(stats) {
   const gk = state.playerById[state.settings.bestGkId];
   return `<h3 class="tv-h">Statistik</h3><div class="tv-lu2">${col("Top scorer", "goals")}${col("Top assist", "assists")}</div>${gk ? `<p class="tv-sub">Kiper terbaik: ${esc(gk.name)} (${esc(state.teamById[gk.teamId]?.name || "")})</p>` : ""}`;
 }
+// Ubah ke true bila layar TV saat tidak ada laga live hanya boleh memutar 3 video (tanpa line up, klasemen, jadwal, hasil, statistik).
+const TV_VIDEO_ONLY = false;
 // Bagian bawah layar saat tidak ada laga live: line up, klasemen tiap grup, jadwal, hasil, statistik, dan banner, bergantian.
 function tvPaneList(next) {
   const ms = state.matches, std = computeStandings(state.teams, ms, state.events);
   const groups = Object.keys(std).filter((g) => g && std[g]?.length).sort((a, b) => a.localeCompare(b)); // urut A, B, C, D
-  const gp = groups.map((g) => () => tvRows(`Klasemen Grup ${esc(g)}`, `<div class="tv-std">${standingsTable(std[g], QUALIFY_PER_GROUP)}</div>`));
+  // klasemen semua grup digabung dalam satu layar (2 x 2)
+  const gp = groups.length ? [() => tvRows("Klasemen", `<div class="tv-std4">${groups.map((g) => `<div class="tv-std"><h4>Grup ${esc(g)}</h4>${standingsTable(std[g], QUALIFY_PER_GROUP)}</div>`).join("")}</div>`)] : [];
   const upcoming = ms.filter((m) => m.status === "scheduled").sort(sortByKickoff).slice(0, 5);
   const done = ms.filter((m) => m.status === "ft").sort((a, b) => sortByKickoff(b, a)).slice(0, 4);
-  const stats = computePlayerStats(state.players, state.events);
+  const stats = computePlayerStats(state.players, state.events, state.teams, state.matches);
   const hasStats = topBy(stats, "goals", 1).length || topBy(stats, "assists", 1).length;
-  const bn = BANNERS.map((b) => () => `<div class="tv-banner"><img src="${b.src}" alt="${esc(b.alt)}"></div>`);
-  return [
+  // video TV: tampil satu layar penuh (tanpa header, hitung mundur, atau logo sponsor tambahan; logo sudah ada di dalam video)
+  const vp = BANNERS.filter((b) => b.tvVideo).map((b) => { const f = () => `<video src="${b.tvVideo}" poster="${b.tvSrc || b.src}" muted autoplay playsinline preload="auto"${b.tvFit === "cover" ? ' class="cover"' : ""}></video>`; f.full = true; f.dur = (b.dur || 15) + 0.2; return f; }); // tanpa loop: di akhir video berhenti di bingkai terakhir lalu memudar ke jeda kosong, tidak mengulang dari awal
+  const dataPanes = [
     next && tvLuReady(next) ? () => tvLineup(next) : null,
-    ...gp, // klasemen Grup A, B, C, D berurutan
-    upcoming.length ? () => tvSchedule(upcoming) : null, bn[0],
+    ...gp, // satu layar klasemen untuk semua grup
+    upcoming.length ? () => tvSchedule(upcoming) : null,
     hasStats ? () => tvStats(stats) : null, done.length ? () => tvResults(done) : null,
-    bn[1], bn[2],
   ].filter(Boolean);
+  if (TV_VIDEO_ONLY) return vp;
+  return [...dataPanes, ...vp]; // layar data dulu, 3 video berurutan di akhir (video pembuka 8 dtk, lalu 2 video acara 15 dtk)
 }
 const tvDots = (n) => n > 1 ? `<div class="tv-dots">${Array.from({ length: n }, (_, i) => `<i class="${i === tvPane % n ? "on" : ""}"></i>`).join("")}</div>` : "";
 function tvView() {
@@ -796,7 +834,9 @@ function tvView() {
 
   if (next) {
     const ko = toDate(next.kickoff)?.getTime();
-    const panes = tvPaneList(next), feed = panes.length ? panes[tvPane % panes.length]() : "";
+    const panes = tvPaneList(next), cur = panes.length ? panes[tvPane % panes.length] : null, feed = cur ? cur() : "";
+    tvCurDur = (cur?.dur || 15) * 1000;
+    if (cur?.full) return `<div class="tv tv-fullvideo">${feed}</div>`;
     return `<div class="tv tv-next">${tvTop(`Laga berikutnya · ${matchLabel(next)}`)}
       <section class="tv-main">${tvTeam(next, "A")}
         <div class="tv-mid"><div class="tv-score vs">vs</div>
@@ -806,7 +846,9 @@ function tvView() {
       <section class="tv-feed">${feed}${tvDots(panes.length)}</section>${tvSponsors}</div>`;
   }
 
-  const ip = tvPaneList(null), ifeed = ip.length ? ip[tvPane % ip.length]() : "";
+  const ip = tvPaneList(null), icur = ip.length ? ip[tvPane % ip.length] : null, ifeed = icur ? icur() : "";
+  tvCurDur = (icur?.dur || 15) * 1000;
+  if (icur?.full) return `<div class="tv tv-fullvideo">${ifeed}</div>`;
   return `<div class="tv tv-idle">${tvTop("")}<section class="tv-main tv-solo"><div><h1>${esc(TOURNAMENT.name)}</h1>
     <p class="tv-note">${last ? `Hasil terakhir: ${esc(sideName(last, "A"))} ${scoreText(last)} ${esc(sideName(last, "B"))}` : `${dateRange}, ${esc(TOURNAMENT.venue)}`}</p></div></section><section class="tv-feed">${ifeed}${tvDots(ip.length)}</section>${tvSponsors}</div>`;
 }
@@ -822,12 +864,33 @@ const tvCountText = (ko) => {
 setInterval(() => {
   document.querySelectorAll("[data-tvcount]").forEach((el) => { el.textContent = tvCountText(Number(el.dataset.tvcount)); });
 }, 1000);
+// Pergantian layar TV: isi layar memudar keluar (jeda singkat di warna latar), lalu layar berikut memudar masuk.
+// Video baru baru ditampilkan setelah siap diputar, supaya tidak ada kedipan poster atau layar kosong.
+let tvWarmed = null, tvPaneAt = Date.now(), tvCurDur = 15000; // tvCurDur: lama layar yang sedang tampil (video mengikuti durasinya)
+setInterval(() => { // tanpa laga live: layar bawah berganti sesuai durasinya (data 15 dtk, video pembuka 8 dtk, video acara 15 dtk)
+  if (route().name !== "tv" || !isReady() || state.matches.some((m) => m.status === "live")) { tvPaneAt = Date.now(); return; }
+  if (Date.now() - tvPaneAt >= tvCurDur) { tvPaneAt = Date.now() + 5000; tvAdvance(); }
+}, 500);
+function tvWarm() { // muat video TV lebih awal agar langsung siap saat gilirannya
+  if (tvWarmed) return;
+  tvWarmed = BANNERS.filter((b) => b.tvVideo).map((b) => { const v = document.createElement("video"); v.muted = true; v.preload = "auto"; v.src = b.tvVideo; v.load(); return v; });
+}
+function tvAdvance() {
+  tvWarm();
+  const el = $app.querySelector(".tv");
+  const go = () => { if (route().name !== "tv") return; tvPane++; tvEnter = true; tvPaneAt = Date.now(); lastHtml = ""; render(); };
+  if (!el) return go();
+  el.classList.add("tv-out");
+  setTimeout(go, 950); // 0,55 dtk memudar keluar + jeda kosong singkat, baru layar berikut memudar masuk
+}
+document.addEventListener("loadeddata", (e) => { if (e.target.matches?.(".tv-fullvideo video")) e.target.classList.add("ready"); }, true);
+document.addEventListener("playing", (e) => { if (e.target.matches?.(".tv-fullvideo video")) e.target.classList.add("ready"); }, true);
 setInterval(() => {
   if (route().name !== "tv" || !isReady()) return;
   const liveN = state.matches.filter((m) => m.status === "live").length;
   if (liveN > 1) { tvIdx++; lastHtml = ""; render(); }
-  else if (!liveN) { tvPane++; lastHtml = ""; render(); } // tanpa laga live: ganti bagian bawah layar
-}, 12000);
+  
+}, 15000);
 
 // layar tidak boleh mati saat dipakai sebagai papan skor; klik dua kali atau tekan F = layar penuh
 let wakeLock = null;
