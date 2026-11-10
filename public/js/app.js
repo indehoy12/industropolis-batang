@@ -476,8 +476,7 @@ function matchView(r) {
 
   let body = "";
   if (tab === "ringkasan") {
-    const subEvs = (m.subLog || []).map((x, i) => ({ ...x, id: `sub${i}`, type: "sub", matchId: m.id, teamId: x.s === "A" ? m.teamA : m.teamB, playerId: x.in, outId: x.out }));
-    const sorted = [...events, ...subEvs].sort((a, b) => evSort(b, a));
+    const sorted = [...events].sort((a, b) => evSort(b, a));
     const rows = [];
     if (m.status === "ft") {
       const tie = (m.scoreA ?? 0) === (m.scoreB ?? 0), pw = tie && m.penWinner ? tName(m.penWinner === "A" ? m.teamA : m.teamB) : "";
@@ -504,7 +503,7 @@ function matchView(r) {
       ${cmpRow("Kartu kuning", c(evA, (e) => e.type === "yellow"), c(evB, (e) => e.type === "yellow"))}
       ${cmpRow("Kartu merah", c(evA, (e) => e.type === "red"), c(evB, (e) => e.type === "red"))}
       ${cmpRow("Gol bunuh diri", c(evA, (e) => e.type === "own_goal"), c(evB, (e) => e.type === "own_goal"))}
-      ${m.subLog ? cmpRow("Pergantian", c(m.subLog, (x) => x.s === "A"), c(m.subLog, (x) => x.s === "B")) : ""}</div>`;
+</div>`;
   }
 
   const motm = m.motmId && state.playerById[m.motmId]
@@ -699,6 +698,7 @@ function render() {
   $app.dataset.view = r.name;
   document.body.classList.toggle("tv-mode", r.name === "tv");
   tvWake(r.name === "tv");
+  tvSoundHint(r.name === "tv");
   if (r.name === "tv") tvWarm();
   if (isReady()) {
     const b = computeBracket(state.teams, state.matches, state.events);
@@ -769,18 +769,16 @@ document.addEventListener("click", (e) => {
 let tvIdx = 0;
 const tvTop = (label) => `<header class="tv-top"><span class="tv-brand"><img src="assets/logo.png" alt="" data-sitelogo><span class="tv-brand-t"><b>${esc(TOURNAMENT.line1.toUpperCase())}</b><i>${esc(TOURNAMENT.line2.toUpperCase())}</i></span></span><span class="tv-label">${label}</span>${rtClockHtml("tvc")}</header>`;
 const tvSponsors = `<footer class="tv-sponsors"><img src="assets/logo-industropolis.png" alt="Industropolis Batang"><i></i><img src="assets/logo-sez.png" alt="Indonesia SEZ"><i></i><img src="assets/logo-danantara.png" alt="Danantara Indonesia"></footer>`;
-// Kejadian di TV: tim A di kiri, tim B di kanan, menit di tengah (gol bunuh diri ditaruh di sisi tim yang diuntungkan, seperti papan skor).
-function tvEvent(m, e) {
-  const side = eventSide(m, e);
-  const who = esc(pName(e.playerId));
-  const text = e.type === "goal" ? `<b>${e.pen ? "Gol penalti" : "Gol"}, ${who}</b>${e.assistId ? `<small>Assist: ${esc(pName(e.assistId))}</small>` : ""}`
-    : e.type === "own_goal" ? `<b>Gol bunuh diri, ${who}</b>`
-    : e.type === "yellow" ? `<b>Kartu kuning, ${who}</b>`
-    : e.type === "red" ? `<b>Kartu merah, ${who}</b>${e.second ? "<small>Kartu kuning kedua</small>" : ""}`
-    : `<b>${esc(e.note || "Kejadian")}</b>`;
-  const body = `<div class="tv-evt">${text}</div>`;
-  if (side === "c") return `<div class="tv-ev s-c"><span class="tv-min">${eventMinute(e)}</span>${eventIcon(e)}${body}</div>`;
-  return `<div class="tv-ev s-${side}"><div class="tv-evl">${side === "a" ? body + eventIcon(e) : ""}</div><span class="tv-min">${eventMinute(e)}</span><div class="tv-evr">${side === "b" ? eventIcon(e) + body : ""}</div></div>`;
+// Gol di TV (gaya papan skor Google): gol tim A di kiri, tim B di kanan, ikon bola di tengah.
+// Kartu, kiper, dan kejadian lain tidak tampil di TV; lengkapnya ada di Ringkasan laga.
+const tvBall = `<svg class="tv-ballic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#fff"/><path d="M12 7.2l4.2 3-1.6 4.9H9.4L7.8 10.2z" fill="#0b1b2e"/><path d="M12 7.2V2.4M16.2 10.2l4.4-1.5M14.6 15.1l2.7 3.8M9.4 15.1l-2.7 3.8M7.8 10.2L3.4 8.7" stroke="#0b1b2e" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg>`;
+function tvGoals(m) {
+  const gs = state.events.filter((e) => e.matchId === m.id && (e.type === "goal" || e.type === "own_goal")).sort(evSort);
+  if (!gs.length) return `<p class="tv-empty">Belum ada gol.</p>`;
+  const list = (side) => gs.filter((e) => eventSide(m, e) === side)
+    .map((e) => `<p>${esc(pName(e.playerId))} <b>${eventMinute(e)}</b>${e.type === "own_goal" ? " <i>(gol bunuh diri)</i>" : e.pen ? " <i>(penalti)</i>" : ""}</p>`).join("");
+  const n = Math.max(gs.filter((e) => eventSide(m, e) === "a").length, gs.filter((e) => eventSide(m, e) === "b").length);
+  return `<div class="tv-goals ${n > 5 ? "xs" : n > 3 ? "sm" : ""}"><div class="tvg-a">${list("a")}</div><div class="tvg-ic">${tvBall}</div><div class="tvg-b">${list("b")}</div></div>`;
 }
 const tvCards = (m, side) => {
   if (m.status === "scheduled") return "";
@@ -848,7 +846,6 @@ function tvView() {
 
   if (live.length) {
     const m = live[tvIdx % live.length];
-    const evs = state.events.filter((e) => e.matchId === m.id).sort((a, b) => evSort(b, a)).slice(0, 4);
     const so = shootout(m).any && (m.scoreA ?? 0) === (m.scoreB ?? 0) ? `<div class="tv-note">Adu penalti ${penScoreText(m)}</div>` : "";
     return `<div class="tv">${tvTop(matchLabel(m))}
       <section class="tv-main">${tvTeam(m, "A")}
@@ -857,7 +854,7 @@ function tvView() {
           <div class="tv-status">${statusPill(m)}</div>
           ${addedText(m) ? `<div class="tv-note">${esc(addedText(m))}</div>` : ""}${so}</div>
         ${tvTeam(m, "B")}</section>
-      <section class="tv-feed">${evs.length ? evs.map((e) => tvEvent(m, e)).join("") : `<p class="tv-empty">Belum ada kejadian.</p>`}
+      <section class="tv-feed">${tvGoals(m)}
         ${live.length > 1 ? `<div class="tv-dots">${live.map((_, i) => `<i class="${i === tvIdx % live.length ? "on" : ""}"></i>`).join("")}</div>` : ""}</section>${tvSponsors}</div>`;
   }
 
@@ -886,25 +883,82 @@ function tvView() {
 // Gol yang sudah ada saat halaman TV dibuka tidak dianimasikan; hanya gol baru (maks 90 dtk lalu) di laga LIVE.
 const seenGoals = new Set();
 let goalsSeeded = false, goalFxTimer = 0;
-function tvGoalFx(m, e) {
-  const toA = e.type === "own_goal" ? e.teamId !== m.teamA : e.teamId === m.teamA;
-  const team = esc(sideName(m, toA ? "A" : "B"));
-  const label = e.type === "own_goal" ? "Gol bunuh diri" : e.pen ? "Gol penalti" : "";
+function tvGoalFx() {
   document.querySelector(".goalfx")?.remove();
   const el = document.createElement("div");
-  el.className = "goalfx";
+  el.className = "goalfx mini";
   el.setAttribute("role", "status");
-  el.innerHTML = `<div class="gfx-rays"></div>
+  el.setAttribute("aria-label", "Gol");
+  el.innerHTML = `<div class="gfx-box">
     <svg class="gfx-goal" viewBox="0 0 400 220" aria-hidden="true"><defs><pattern id="gfxnet" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M0 0L16 16M16 0L0 16" stroke="#fff" stroke-opacity=".35" stroke-width="1.2"/></pattern></defs>
-      <g class="gfx-net"><rect x="30" y="30" width="340" height="170" fill="url(#gfxnet)"/><rect x="30" y="30" width="340" height="170" fill="#fff" fill-opacity=".06"/></g>
+      <g class="gfx-net"><rect x="30" y="30" width="340" height="170" fill="url(#gfxnet)"/></g>
       <path d="M22 205V22H378V205" fill="none" stroke="#fff" stroke-width="12" stroke-linejoin="round"/></svg>
-    <div class="gfx-ball">${ballSvg()}</div>
-    <div class="gfx-txt"><div class="gfx-big">GOOOLL!</div><div class="gfx-who">${esc(pName(e.playerId))} <small>${eventMinute(e)}</small></div><div class="gfx-team">${team}${label ? ` · ${label}` : ""}</div></div>`;
+    <div class="gfx-ball">${ballSvg()}</div></div>`;
   document.body.appendChild(el);
   clearTimeout(goalFxTimer);
-  goalFxTimer = setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 600); }, 6500);
+  goalFxTimer = setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 500); }, 3200);
+  tvGoalSound();
 }
-const seenCards = new Set(), ftSeen = new Map();
+
+// ---------- Suara gol ----------
+// Bila ada file assets/gol.mp3 (rekaman "GOOOLL!" + sorak penonton), file itu yang diputar.
+// Bila tidak ada, dibuat suara sorak + klakson + ucapan "Gooool" lewat peramban.
+// Peramban hanya mengizinkan suara setelah layar diketuk / ditekan tombol sekali; tombol kecil di pojok TV mengingatkan.
+const goalMp3 = new Audio("assets/gol.mp3");
+let mp3Ok = true, actx = null, sndReady = false;
+goalMp3.preload = "auto";
+goalMp3.addEventListener("error", () => { mp3Ok = false; });
+function tvSoundUnlock() {
+  if (sndReady) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    actx.resume?.();
+    sndReady = true;
+    try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } catch {}
+    goalMp3.muted = true; goalMp3.play().then(() => { goalMp3.pause(); goalMp3.currentTime = 0; goalMp3.muted = false; }).catch(() => { goalMp3.muted = false; });
+  } catch { /* tanpa suara */ }
+  document.querySelector(".tv-snd")?.remove();
+}
+["pointerdown", "keydown", "touchstart"].forEach((t) => document.addEventListener(t, () => { if (route().name === "tv") tvSoundUnlock(); }, { passive: true }));
+function tvSoundHint(on) {
+  const old = document.querySelector(".tv-snd");
+  if (!on || sndReady) { old?.remove(); return; }
+  if (old) return;
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "tv-snd"; b.textContent = "🔊 Ketuk untuk aktifkan suara gol";
+  b.addEventListener("click", tvSoundUnlock);
+  document.body.appendChild(b);
+}
+function tvGoalSound() {
+  if (!sndReady) return;
+  if (mp3Ok) { goalMp3.currentTime = 0; goalMp3.play().catch(synthGoal); return; }
+  synthGoal();
+}
+function synthGoal() {
+  try {
+    const t = actx.currentTime, out = actx.createGain();
+    out.gain.value = 0.9; out.connect(actx.destination);
+    // sorak penonton: derau yang naik lalu turun
+    const len = Math.floor(actx.sampleRate * 3.4), buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const n = actx.createBufferSource(); n.buffer = buf;
+    const bp = actx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1300; bp.Q.value = 0.6;
+    const g = actx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.55, t + 0.5); g.gain.setValueAtTime(0.55, t + 1.6); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.3);
+    n.connect(bp); bp.connect(g); g.connect(out); n.start(t);
+    // klakson pendek
+    [415, 523].forEach((f) => {
+      const o = actx.createOscillator(), og = actx.createGain();
+      o.type = "sawtooth"; o.frequency.value = f;
+      og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.16, t + 0.05); og.gain.setValueAtTime(0.16, t + 0.7); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
+      o.connect(og); og.connect(out); o.start(t); o.stop(t + 1);
+    });
+    // ucapan "Gooool"
+    const u = new SpeechSynthesisUtterance("Goooooool!");
+    u.lang = "id-ID"; u.rate = 0.7; u.pitch = 1.1; u.volume = 1;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  } catch { /* tanpa suara */ }
+}
+const ftSeen = new Map();
 function tvFxShow(cls, html, ms) {
   document.querySelector(".goalfx")?.remove();
   const el = document.createElement("div");
@@ -914,11 +968,6 @@ function tvFxShow(cls, html, ms) {
   document.body.appendChild(el);
   clearTimeout(goalFxTimer);
   goalFxTimer = setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 600); }, ms);
-}
-function tvCardFx(m, e) {
-  const red = e.type === "red";
-  tvFxShow("cardfx", `<div class="gfx-rays"></div><div class="gfx-cardbox ${red ? "r" : "y"}"></div>
-    <div class="gfx-txt"><div class="gfx-big ${red ? "red" : ""}">${red ? "KARTU MERAH" : "KARTU KUNING"}</div><div class="gfx-who">${esc(pName(e.playerId))} <small>${eventMinute(e)}</small></div><div class="gfx-team">${esc(tName(e.teamId))}${e.second ? " · kuning kedua" : ""}</div></div>`, 5000);
 }
 function tvFtFx(m) {
   const a = m.scoreA ?? 0, b = m.scoreB ?? 0;
@@ -931,16 +980,13 @@ function tvFtFx(m) {
 }
 function tvCheckGoals(onTv) {
   const goals = state.events.filter((e) => e.type === "goal" || e.type === "own_goal");
-  const cards = state.events.filter((e) => e.type === "yellow" || e.type === "red");
   if (!goalsSeeded) {
-    goals.forEach((x) => seenGoals.add(x.id)); cards.forEach((x) => seenCards.add(x.id));
+    goals.forEach((x) => seenGoals.add(x.id));
     state.matches.forEach((m) => ftSeen.set(m.id, m.status));
     goalsSeeded = true; return;
   }
   const fresh = goals.filter((x) => !seenGoals.has(x.id));
   fresh.forEach((x) => seenGoals.add(x.id));
-  const freshC = cards.filter((x) => !seenCards.has(x.id));
-  freshC.forEach((x) => seenCards.add(x.id));
   const justFt = state.matches.filter((m) => ftSeen.get(m.id) === "live" && m.status === "ft" && !m.wo);
   state.matches.forEach((m) => ftSeen.set(m.id, m.status));
   if (!onTv) return;
@@ -948,11 +994,7 @@ function tvCheckGoals(onTv) {
   if (justFt.length) { tvFtFx(justFt[0]); return; }
   if (fresh.length) {
     const e = fresh.sort(evSort).pop(), m = state.matchById[e.matchId];
-    if (m && m.status === "live" && recent(e)) { tvGoalFx(m, e); return; }
-  }
-  if (freshC.length) {
-    const e = freshC.sort(evSort).pop(), m = state.matchById[e.matchId];
-    if (m && m.status === "live" && recent(e)) tvCardFx(m, e);
+    if (m && m.status === "live" && recent(e)) tvGoalFx();
   }
 }
 

@@ -414,22 +414,44 @@ function suspPanel(m) {
 }
 const playerOpts = (ids) => ids.map((id) => state.playerById[id]).filter(Boolean).sort(byNumber).map((p) => `<option value="${esc(p.id)}">${p.number ?? "–"} · ${esc(p.name)}${p.isGK ? " (GK)" : ""}</option>`).join("");
 const uniq = (l) => [...new Set(l.filter(Boolean))];
+/** Pasang kiper baru. Bila kiper itu belum di lapangan (masih cadangan), dia masuk menggantikan kiper lama; riwayatnya disimpan di subLog supaya bisa dibatalkan. */
+async function putKeeper(m, side, next, cur, text) {
+  const on = onCourtIds(m, side, state.events), st = stampNow(m), b = writeBatch(db);
+  const used = m["gkUsed" + side] ?? uniq([cur]);
+  const patch = { ["gk" + side]: next, ["gkUsed" + side]: uniq([...used, next]) };
+  if (!on.includes(next)) {
+    const entry = { s: side, out: cur ?? null, in: next, minute: st.minute, extra: st.extra, sec: st.sec, p: st.p, ps: st.ps, pm: st.pm, ts: nowMs(), g: 1, gp: cur ?? null, gu: used };
+    patch.subLog = [...(m.subLog || []), entry];
+  }
+  b.update(matchRef(m.id), patch);
+  b.set(doc(collection(db, "events")), mkNote(m, text, st));
+  await b.commit();
+}
+/** Kiper yang boleh menggantikan kiper sekarang: pemain bertanda GK di line up tim itu, belum kena merah, bukan kiper yang sedang jaga. */
+function gkCandidates(m, side, cur) {
+  const off = new Set(state.events.filter((e) => e.matchId === m.id && e.type === "red").map((e) => e.playerId));
+  return lineupIds(m, side).filter((x) => x !== cur && state.playerById[x]?.isGK && !off.has(x));
+}
 function courtPanel(m) {
   const box = (side) => {
     const on = onCourtIds(m, side, state.events), gk = gkNow(m, side, state.players);
     const ct = cardTotals(state.events, m.id, side === "A" ? m.teamA : m.teamB);
     const names = on.map((id) => state.playerById[id]).filter(Boolean).sort(byNumber).map((p) => `<span class="oc ${p.id === gk ? "gk" : ""}">${p.number ?? "–"} ${esc(p.name)}${p.id === gk ? " · GK" : ""}</span>`).join("");
-    const gkWarn = gk && !on.includes(gk) ? `<p class="problems">Kiper dikeluarkan. Pilih kiper pengganti lewat Ganti kiper.</p>` : gk === null ? `<p class="hint">Tanpa kiper (kiper terbang): gol tidak dibebankan ke kiper mana pun.</p>` : "";
+    const pp = gk === null, canSwap = !pp && gkCandidates(m, side, gk).length > 0;
+    const gkWarn = gk && !on.includes(gk) ? `<p class="problems">Kiper dikeluarkan. Pilih kiper pengganti lewat Ganti kiper.</p>` : pp ? `<p class="hint"><b>Power play</b>: tanpa kiper, gol tidak dibebankan ke kiper mana pun.</p>` : !canSwap ? `<p class="hint">Hanya ada 1 kiper di line up, jadi kiper tidak bisa diganti. Pakai Power play bila ingin main tanpa kiper.</p>` : "";
+    const id = esc(m.id);
     return `<div class="court-col"><h3>${esc(sideName(m, side))}</h3>
       <div class="foulrow"><span>Total kartu</span><span class="cardtot"><i class="card y"></i><b>${ct.y}</b><i class="card r"></i><b>${ct.r}</b></span></div>
       <div class="onc" aria-label="Pemain di lapangan">${names || `<span class="muted">Belum ada pemain di lapangan.</span>`}</div>${gkWarn}
-      <div class="btns"><button type="button" class="btn ghost" data-act="sub" data-id="${esc(m.id)}" data-side="${side}">Pergantian</button><button type="button" class="btn ghost" data-act="gk-change" data-id="${esc(m.id)}" data-side="${side}">Ganti kiper</button></div></div>`;
+      <div class="btns">${pp
+        ? `<button type="button" class="btn" data-act="powerplay" data-id="${id}" data-side="${side}">Akhiri power play</button>`
+        : `<button type="button" class="btn ghost" data-act="gk-change" data-id="${id}" data-side="${side}" ${canSwap ? "" : "disabled"}>Ganti kiper</button><button type="button" class="btn ghost" data-act="powerplay" data-id="${id}" data-side="${side}">Power play</button>`}</div></div>`;
   };
   const last = (m.subLog || []).at(-1), subs = (m.subLog || []).length;
-  return `<div class="panel"><h2 class="a">Pemain di lapangan dan kiper</h2>
-    <p class="hint">Pergantian bebas tanpa batas. Kebobolan dibebankan ke kiper yang sedang jaga saat gol terjadi.</p>
+  return `<div class="panel"><h2 class="a">Kiper</h2>
+    <p class="hint">Ganti kiper hanya bisa dengan kiper lain di line up tim yang sama (tim dengan 1 kiper tidak bisa ganti). Power play = main tanpa kiper. Kebobolan dibebankan ke kiper yang sedang jaga saat gol terjadi.</p>
     <div class="court">${box("A")}${box("B")}</div>
-    ${last ? `<p class="hint">${subs} pergantian tercatat. Terakhir: ${esc(pName(last.in))} masuk menggantikan ${esc(pName(last.out))} (${esc(sideName(m, last.s))}) ${eventMinute(last)}. <button type="button" class="btn sm ghost" data-act="sub-undo" data-id="${esc(m.id)}">Batalkan pergantian terakhir</button></p>` : ""}</div>`;
+    ${last ? `<p class="hint">${subs} ganti kiper tercatat. Terakhir: ${esc(pName(last.in))} masuk menggantikan ${esc(pName(last.out))} (${esc(sideName(m, last.s))}) ${eventMinute(last)}. <button type="button" class="btn sm ghost" data-act="sub-undo" data-id="${esc(m.id)}">Batalkan ganti kiper terakhir</button></p>` : ""}</div>`;
 }
 function suspCard() {
   const rows = [];
@@ -1092,37 +1114,10 @@ const actions = {
     await setDoc(doc(db, "settings", "main"), { suspOverrides: { [key]: len } }, { merge: true });
     toast(len === null ? "Skorsing dikembalikan ke hitungan otomatis" : len === 0 ? "Skorsing dibatalkan" : `Skorsing menjadi ${len} laga`);
   },
-  async sub(id, el) {
-    const m = state.matchById[id], side = el.dataset.side;
-    if (!m || m.status !== "live") throw new Error("Laga tidak sedang LIVE.");
-    if (phaseOf(m) === "pen") throw new Error("Tidak ada pergantian saat adu penalti.");
-    const on = onCourtIds(m, side, state.events), off = new Set(state.events.filter((e) => e.matchId === id && e.type === "red").map((e) => e.playerId));
-    const bench = lineupIds(m, side).filter((x) => !on.includes(x) && !off.has(x));
-    if (!on.length || !bench.length) throw new Error("Tidak ada pemain cadangan yang bisa masuk.");
-    const v = await openModal({
-      title: `Pergantian · ${sideName(m, side)}`, ok: "Catat pergantian",
-      fields: `<label for="sb-out">Pemain keluar</label><select id="sb-out" name="out">${playerOpts(on)}</select><label for="sb-in">Pemain masuk</label><select id="sb-in" name="in">${playerOpts(bench)}</select>`,
-      read: (root) => ({ out: root.querySelector("[name=out]").value, in: root.querySelector("[name=in]").value }),
-    });
-    if (!v) return;
-    const cur = gkNow(m, side, state.players), st = stampNow(m);
-    const entry = { s: side, out: v.out, in: v.in, minute: st.minute, extra: st.extra, sec: st.sec, p: st.p, ps: st.ps, pm: st.pm, ts: nowMs() };
-    const patch = {}, b = writeBatch(db);
-    if (v.out === cur) { // yang keluar adalah kiper: pemain masuk menjadi kiper
-      const used = m["gkUsed" + side] ?? uniq([cur]);
-      Object.assign(entry, { g: 1, gp: cur ?? null, gu: used });
-      patch["gk" + side] = v.in; patch["gkUsed" + side] = uniq([...used, v.in]);
-      b.set(doc(collection(db, "events")), mkNote(m, `Ganti kiper (${sideName(m, side)}): ${pName(v.out)} → ${pName(v.in)}`, st));
-    }
-    patch.subLog = [...(m.subLog || []), entry];
-    b.update(matchRef(id), patch);
-    await b.commit();
-    toast(`${pName(v.in)} masuk, ${pName(v.out)} keluar · ${eventMinute(entry)}`);
-  },
   async "sub-undo"(id) {
     const m = state.matchById[id], last = (m?.subLog || []).at(-1);
     if (!last) return;
-    if (!(await confirmBox(`${pName(last.in)} masuk menggantikan ${pName(last.out)} (${sideName(m, last.s)}).`, { title: "Batalkan pergantian terakhir?", ok: "Ya, batalkan", danger: true }))) return;
+    if (!(await confirmBox(`${pName(last.in)} masuk menggantikan ${pName(last.out)} (${sideName(m, last.s)}).`, { title: "Batalkan ganti kiper terakhir?", ok: "Ya, batalkan", danger: true }))) return;
     const patch = { subLog: m.subLog.slice(0, -1) };
     if (last.g && m["gk" + last.s] === last.in) { patch["gk" + last.s] = last.gp ?? null; patch["gkUsed" + last.s] = last.gu || []; }
     await updateDoc(matchRef(id), patch);
@@ -1130,19 +1125,48 @@ const actions = {
   async "gk-change"(id, el) {
     const m = state.matchById[id], side = el.dataset.side;
     if (!m || m.status !== "live") throw new Error("Laga tidak sedang LIVE.");
-    const on = onCourtIds(m, side, state.events), cur = gkNow(m, side, state.players);
+    if (phaseOf(m) === "pen") throw new Error("Tidak ada ganti kiper saat adu penalti.");
+    const cur = gkNow(m, side, state.players);
+    if (cur === null) throw new Error("Sedang power play. Tekan Akhiri power play dulu.");
+    const cands = gkCandidates(m, side, cur);
+    if (!cands.length) throw new Error(`${sideName(m, side)} hanya punya 1 kiper di line up, jadi kiper tidak bisa diganti. Untuk main tanpa kiper pakai Power play.`);
     const v = await openModal({
-      title: `Ganti kiper · ${sideName(m, side)}`, ok: "Simpan", message: "Pilih siapa yang menjaga gawang sekarang. Gol berikutnya dibebankan ke kiper ini.",
-      fields: `<label for="gk-sel">Kiper</label><select id="gk-sel" name="gk">${playerOpts(on).replace(`value="${esc(cur || "")}"`, `value="${esc(cur || "")}" selected`)}<option value="" ${cur === null ? "selected" : ""}>Tanpa kiper (kiper terbang)</option></select>`,
+      title: `Ganti kiper · ${sideName(m, side)}`, ok: "Ganti kiper", message: `Kiper sekarang: ${pName(cur)}. Pilih kiper pengganti.`,
+      fields: `<label for="gk-sel">Kiper pengganti</label><select id="gk-sel" name="gk">${playerOpts(cands)}</select>`,
       read: (root) => ({ gk: root.querySelector("[name=gk]").value }),
     });
-    if (!v) return;
-    const next = v.gk || null;
-    if (next === cur) return;
-    const used = m["gkUsed" + side] ?? uniq([cur]), st = stampNow(m), b = writeBatch(db);
-    b.update(matchRef(id), { ["gk" + side]: next, ["gkUsed" + side]: uniq([...used, next]) });
-    b.set(doc(collection(db, "events")), mkNote(m, next ? `Ganti kiper (${sideName(m, side)}): ${cur ? pName(cur) + " → " : ""}${pName(next)}` : `Kiper terbang (${sideName(m, side)})`, st));
-    await b.commit();
+    if (!v || !v.gk || v.gk === cur) return;
+    await putKeeper(m, side, v.gk, cur, `Ganti kiper (${sideName(m, side)}): ${pName(cur)} → ${pName(v.gk)}`);
+    toast(`${pName(v.gk)} jaga gawang`);
+  },
+  async powerplay(id, el) {
+    const m = state.matchById[id], side = el.dataset.side;
+    if (!m || m.status !== "live") throw new Error("Laga tidak sedang LIVE.");
+    if (phaseOf(m) === "pen") throw new Error("Tidak ada power play saat adu penalti.");
+    const cur = gkNow(m, side, state.players), st = stampNow(m);
+    if (cur) { // mulai power play: kiper tetap di lapangan sebagai pemain biasa
+      const b = writeBatch(db);
+      b.update(matchRef(id), { ["gk" + side]: null, ["gkPrev" + side]: cur });
+      b.set(doc(collection(db, "events")), mkNote(m, `Kiper terbang (${sideName(m, side)})`, st));
+      await b.commit();
+      toast(`Power play ${sideName(m, side)}`);
+      return;
+    }
+    const cands = gkCandidates(m, side, null);
+    if (!cands.length) throw new Error("Tidak ada kiper yang bisa kembali menjaga gawang (kiper kena kartu merah).");
+    const prev = m["gkPrev" + side];
+    let back = cands.includes(prev) ? prev : cands.length === 1 ? cands[0] : null;
+    if (!back) {
+      const v = await openModal({
+        title: `Akhiri power play · ${sideName(m, side)}`, ok: "Simpan", message: "Pilih kiper yang kembali menjaga gawang.",
+        fields: `<label for="gk-sel">Kiper</label><select id="gk-sel" name="gk">${playerOpts(cands)}</select>`,
+        read: (root) => ({ gk: root.querySelector("[name=gk]").value }),
+      });
+      if (!v || !v.gk) return;
+      back = v.gk;
+    }
+    await putKeeper(m, side, back, null, `Kiper kembali (${sideName(m, side)}): ${pName(back)}`);
+    toast(`${pName(back)} kembali jaga gawang`);
   },
   // --- POS ---
   side(_, el) { ui.side = el.dataset.side; },
