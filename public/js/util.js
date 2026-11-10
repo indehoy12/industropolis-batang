@@ -13,18 +13,6 @@ export const TOURNAMENT = {
   end: "2026-12-04",
 };
 
-// Pendaftaran tim (Google Form). Tombol "Daftar tim" mengikuti jadwal ini (jam perangkat pengunjung).
-export const REGISTRATION = {
-  url: "https://docs.google.com/forms/d/e/1FAIpQLScMWxdzfy64SIs-F8leDWftihMQfd4LgcrHdvcfzhvzRYXLFQ/viewform",
-  open: "2026-11-09T00:00:00+07:00",
-  close: "2026-11-15T15:00:00+07:00",
-};
-/** "soon" (belum dibuka), "open", atau "closed". */
-export function registrationState(now = Date.now()) {
-  if (now < Date.parse(REGISTRATION.open)) return "soon";
-  return now <= Date.parse(REGISTRATION.close) ? "open" : "closed";
-}
-
 // Jumlah tim lolos per grup mengikuti bagan (4 grup x 2 tim = 8 tim perempat final).
 export const QUALIFY_PER_GROUP = 2;
 
@@ -285,6 +273,72 @@ export const lineupIds = (match, side) => {
   return [...(lu.starters || []), ...(lu.subs || [])];
 };
 
+// ---------- Skorsing (dihitung dari kejadian, tanpa data baru) ----------
+// Merah (langsung atau dari kuning kedua) = absen SUSPENSION.redMatches laga berikutnya tim itu.
+// Akumulasi kuning (di laga berbeda) mencapai yellowLimit = absen 1 laga, lalu hitungan mulai dari nol.
+// Dua kuning di laga yang sama sudah jadi merah, jadi tidak dihitung dua kali. Kuning dari babak grup dihapus saat babak gugur dimulai.
+// Panitia bisa mengubah lamanya lewat settings/main.suspOverrides[kunci] (0 = skorsing dibatalkan, 2 = diperpanjang).
+export const SUSPENSION = { yellowLimit: 2, redMatches: 1 };
+export const suspKey = (playerId, matchId) => `${playerId}_${matchId}`;
+export function computeSuspensions(teamId, matches, events, players, overrides = {}) {
+  const L = matches.filter((m) => m.teamA === teamId || m.teamB === teamId).sort(sortByKickoff);
+  const mine = new Set(players.filter((p) => p.teamId === teamId).map((p) => p.id));
+  const yel = {}, out = [];
+  let reset = false;
+  L.forEach((m, j) => {
+    if (m.status !== "ft") return;
+    if (!(m.stage === "group" || !m.stage) && !reset) { for (const k of Object.keys(yel)) delete yel[k]; reset = true; }
+    if (m.wo) return;
+    const byP = {};
+    events.filter((e) => e.matchId === m.id && e.teamId === teamId && mine.has(e.playerId) && (e.type === "yellow" || e.type === "red"))
+      .forEach((e) => (byP[e.playerId] ||= []).push(e));
+    for (const [pid, list] of Object.entries(byP)) {
+      let kind = null;
+      if (list.some((e) => e.type === "red")) kind = "red";
+      else { yel[pid] = (yel[pid] || 0) + list.length; if (yel[pid] >= SUSPENSION.yellowLimit) { kind = "yellow"; yel[pid] = 0; } }
+      if (!kind) continue;
+      const base = kind === "red" ? SUSPENSION.redMatches : 1, key = suspKey(pid, m.id), len = overrides[key] ?? base;
+      out.push({ playerId: pid, matchId: m.id, kind, base, len, key, overridden: overrides[key] != null, covers: L.slice(j + 1, j + 1 + len).map((x) => x.id) });
+    }
+  });
+  return out;
+}
+/** Skorsing yang berlaku di satu laga untuk satu tim: Map playerId -> rincian. */
+export function suspendedIn(match, teamId, matches, events, players, overrides = {}) {
+  const map = new Map();
+  if (!teamId || match.status === "ft") return map;
+  for (const o of computeSuspensions(teamId, matches, events, players, overrides)) if (o.covers.includes(match.id) && !map.has(o.playerId)) map.set(o.playerId, o);
+  return map;
+}
+export const suspReason = (o) => (o.kind === "red" ? "Kartu merah" : `Akumulasi ${SUSPENSION.yellowLimit} kartu kuning`) + (o.len !== o.base ? ` (skorsing ${o.len} laga)` : "");
+
+// ---------- Pemain di lapangan, kiper, kartu ----------
+/** Pemain yang sudah dikeluarkan (kartu merah) di laga ini. */
+export const sentOffIds = (m, events) => new Set(events.filter((e) => e.matchId === m.id && e.type === "red").map((e) => e.playerId));
+/** Pemain di lapangan: susunan inti, lalu pergantian (subLog), dikurangi yang dikartu merah. */
+export function onCourtIds(m, side, events = []) {
+  let on = [...(m["lineup" + side]?.starters || [])];
+  for (const s of m.subLog || []) if (s.s === side) { on = on.filter((id) => id !== s.out); if (!on.includes(s.in)) on.push(s.in); }
+  const off = sentOffIds(m, events);
+  return on.filter((id) => !off.has(id));
+}
+/** Sisi tampil kejadian: "a" (tim A, kiri), "b" (tim B, kanan), "c" (tengah). Gol bunuh diri ditaruh di sisi tim yang diuntungkan. */
+export function eventSide(m, e) {
+  const team = !e.teamId ? null : e.type === "own_goal" ? (e.teamId === m.teamA ? m.teamB : m.teamA) : e.teamId;
+  return team && team === m.teamA ? "a" : team && team === m.teamB ? "b" : "c";
+}
+/** Total kartu satu tim di satu laga. */
+export const cardTotals = (events, matchId, teamId) => {
+  const l = events.filter((e) => e.matchId === matchId && e.teamId === teamId);
+  return { y: l.filter((e) => e.type === "yellow").length, r: l.filter((e) => e.type === "red").length };
+};
+/** Kiper yang sedang jaga gawang (null = kiper terbang). Laga lama tanpa pelacakan memakai kiper di susunan inti. */
+export function gkNow(m, side, players) {
+  const v = m["gk" + side];
+  if (v !== undefined) return v;
+  return (m["lineup" + side]?.starters || []).find((id) => players.find((p) => p.id === id)?.isGK) ?? null;
+}
+
 // ---------- Klasemen ----------
 function blank(team) {
   return { teamId: team.id, name: team.name, group: team.group, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, fp: 0, tb: team.tbRank ?? null, tied: false, tieId: null };
@@ -403,7 +457,7 @@ export function topBy(stats, key, limit = 10) {
 /**
  * Statistik kiper (untuk Kiper Terbaik). Dihitung dari laga selesai di mana kiper masuk susunan inti:
  * main, clean sheet (lawan 0 gol, termasuk ET), kebobolan, rata-rata kebobolan, plus gol/assist/kartu dan posisi akhir timnya.
- * Catatan futsal: sistem tidak mencatat pergantian pemain, jadi yang dihitung adalah kiper di susunan inti.
+ * Bila laga memakai pelacakan kiper (tombol Ganti kiper / Pergantian), kebobolan dibebankan ke kiper yang jaga saat gol; laga lama memakai kiper di susunan inti. Clean sheet = tim tidak kebobolan sama sekali.
  * Gol adu penalti tidak dicatat sebagai gol, jadi tidak menambah kebobolan.
  */
 export function computeKeeperStats(players, matches, teams = [], events = []) {
@@ -413,6 +467,19 @@ export function computeKeeperStats(players, matches, teams = [], events = []) {
     if (m.status !== "ft" || m.wo) continue; // WO: tidak ada permainan, tidak masuk statistik kiper
     for (const side of ["A", "B"]) {
       const lineup = m["lineup" + side] || {};
+      if (m["gk" + side] !== undefined) { // pelacakan kiper aktif: kebobolan dibebankan ke kiper yang jaga saat gol terjadi
+        const me = side === "A" ? m.teamA : m.teamB;
+        const used = (m["gkUsed" + side] || []).filter((id) => gks[id]);
+        const conc = events.filter((e) => e.matchId === m.id && ((e.type === "goal" && e.teamId !== me) || (e.type === "own_goal" && e.teamId === me)));
+        const first = (m["gkUsed" + side] || [])[0];
+        for (const id of used) {
+          const g = gks[id];
+          g.played++;
+          g.conceded += conc.filter((e) => ("gkId" in e ? e.gkId : first) === id).length;
+          if (!conc.length) g.cleanSheets++;
+        }
+        continue;
+      }
       const conceded = side === "A" ? m.scoreB || 0 : m.scoreA || 0;
       for (const id of lineup.starters || []) {
         const g = gks[id];
@@ -504,9 +571,22 @@ export function scoreFromEvents(match, events) {
   return [a, b];
 }
 
-/** Ikon bola untuk gol. cls "og" = merah (gol bunuh diri). Warna diatur lewat CSS (.ball). */
+/** Ikon bola untuk gol: bola sepak klasik (pentagon tengah, garis jahitan, lima pentagon di tepi). cls "og" = merah (gol bunuh diri). Warna lewat CSS (.ball). */
+const BALL_INNER = (() => {
+  const P = (r, deg, cx = 12, cy = 12) => [cx + r * Math.cos((deg * Math.PI) / 180), cy + r * Math.sin((deg * Math.PI) / 180)];
+  const f = (p) => `${p[0].toFixed(2)} ${p[1].toFixed(2)}`;
+  const poly = (c, r, rot) => [0, 1, 2, 3, 4].map((k) => P(r, rot + 72 * k, c[0], c[1]).map((n) => n.toFixed(2)).join(",")).join(" ");
+  let seams = "", patches = "";
+  for (let k = 0; k < 5; k++) {
+    const a = -90 + 72 * k, s = P(7.2, a);
+    seams += `M${f(P(3.8, a))}L${f(s)}`;
+    for (const d of [-36, 36]) seams += `M${f(s)}L${f(P(8, a + d))}`;
+    patches += `<polygon class="bl" points="${poly(P(8, a + 36), 2.8, a + 36 + 180)}"/>`;
+  }
+  return `<path class="bs sm" d="${seams}"/><polygon class="bl" points="${poly([12, 12], 3.8, -90)}"/>${patches}`;
+})();
 export const ballSvg = (cls = "") =>
-  `<svg class="ball ${cls}" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle class="bs bf" cx="12" cy="12" r="10.5"/><path class="bl" d="M12 7.2l4.1 3-1.6 4.8H9.5L7.9 10.2z"/><path class="bs" d="M12 7.2V2M16.1 10.2l5-1.6M14.5 15l3 4.2M9.5 15l-3 4.2M7.9 10.2l-5-1.6"/></svg>`;
+  `<svg class="ball ${cls}" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle class="bs bf" cx="12" cy="12" r="10.8"/>${BALL_INNER}</svg>`;
 
 export const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

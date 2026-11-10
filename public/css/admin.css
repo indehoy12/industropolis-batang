@@ -577,3 +577,43 @@ body.admin { background: var(--paper); }
 .login { background: #fff; border-top: 0; box-shadow: inset 0 5px 0 0 var(--court-2), var(--shadow-2); }
 .tabbar { background: rgba(3,11,21,.96); }
 .tabbar a.on { box-shadow: inset 0 -3px 0 var(--orange); }
+
+/* Skorsing */
+.tile.is-susp { background: #fdecee; border-color: #d6212f; color: #7a1018; }
+.tile.is-susp:disabled { opacity: .85; cursor: not-allowed; }
+.tile.is-susp .st { color: #b01a27; font-weight: 700; }
+.susp { margin: 12px 0; padding: 12px 14px; background: #fff7e6; border: 1px solid #edbe6d; border-left: 5px solid #d6212f; border-radius: 14px; }
+.susp h3 { font-family: var(--font-d); font-size: 20px; }
+.susp-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 14px; padding: 10px 0; border-top: 1px solid #f0dcae; }
+.susp-row:first-of-type { margin-top: 8px; }
+.susp-row small { display: block; color: var(--ink-2); font-size: 13px; }
+.susp-row.off { opacity: .75; }
+/* Pelanggaran, pemain di lapangan, kiper */
+.court { display: grid; gap: 14px; margin-top: 10px; }
+@media (min-width: 760px) { .court { grid-template-columns: 1fr 1fr; } }
+.court-col { padding: 12px; border: 1px solid var(--rule); border-radius: 14px; background: var(--surface); }
+.court-col h3 { font-family: var(--font-d); font-size: 22px; margin-bottom: 6px; }
+.foulrow { display: flex; align-items: center; gap: 10px; font-weight: 600; flex-wrap: wrap; }
+.foulrow b { font-family: var(--font-d); font-size: 26px; }
+.foulrow b.hot, .hotn { color: var(--live); }
+.fdots { display: inline-flex; gap: 5px; }
+.fd { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #9aa9bd; }
+.fd.on { background: var(--live); border-color: var(--live); }
+.onc { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.oc { padding: 4px 9px; border-radius: 999px; background: #fff; border: 1px solid var(--rule); font-size: 14px; font-weight: 600; }
+.oc.gk { background: var(--court); color: #fff; border-color: var(--court); }
+
+.ball { width: 22px; height: 22px; }
+.ball.lg { width: 32px; height: 32px; }
+.mk .ball { width: 20px; height: 20px; }
+.ball .bs.sm { stroke-width: 1.1; }
+.ball .bf.bs { stroke-width: 1.5; }
+/* Riwayat kejadian: tim A kiri, tim B kanan */
+.aev2 { grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr); }
+.aev2 > b { text-align: center; }
+.aev-l, .aev-r { min-width: 0; display: flex; }
+.aev-l { justify-content: flex-end; text-align: right; } .aev-r { justify-content: flex-start; text-align: left; }
+.aev-body { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.aev-l .aev-body { flex-direction: row-reverse; justify-content: flex-start; }
+.aev2.s-c, .aev.note.aev2 { display: flex; justify-content: center; gap: 10px; }
+.cardtot { display: inline-flex; align-items: center; gap: 6px; } .cardtot b { font-family: var(--font-d); font-size: 22px; margin-right: 8px; }

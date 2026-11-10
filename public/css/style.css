@@ -219,7 +219,7 @@ table.std th { font-size: 14px; font-weight: 600; color: var(--ink-3); text-alig
 table.std th.tm, table.std td.tm { text-align: left; }
 table.std td { padding: 11px 4px; text-align: center; border-top: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
 table.std td.rank { width: 34px; position: relative; padding-left: 14px; text-align: left; color: var(--ink-3); }
-table.std tr.q td.rank::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--orange); }
+table.std tr.q td.rank::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #1fa65a; }
 table.std td.tm { font-weight: 600; overflow-wrap: anywhere; }
 table.std td.pts { font-family: var(--font-d); font-weight: 700; font-size: 20px; }
 table.std .tie { color: transparent; user-select: none; }
@@ -629,7 +629,7 @@ body.tv-mode { background: #030b15; color: #fff; overflow: hidden; cursor: none;
 .tv-sponsors i { height: 3vh; }
 
 /* sponsor TV: kotak putih kecil, rata kanan, tiga logo diseragamkan */
-.tv-sponsors { justify-self: end; width: fit-content; max-width: 100%; height: 4.6vh; padding: 0 1.4vw; gap: 1.2vw; border-radius: 1vh; }
+.tv-sponsors { justify-self: start; width: fit-content; max-width: 100%; height: 4.6vh; padding: 0 1.4vw; gap: 1.2vw; border-radius: 1vh; }
 .tv-sponsors img { width: auto; max-width: none; object-fit: contain; }
 /* ketiga logo sudah dipangkas rapat (tanpa ruang kosong), jadi cukup disamakan lebarnya; tingginya mengikuti bentuk masing-masing */
 .tv-sponsors img { width: 11vh; height: auto; max-width: none; }
@@ -688,7 +688,9 @@ body:not(.tv-mode)::before { content: none; }
 .gk-grid > div { background: var(--surface); }
 .ball { --b: #0d2038; }
 .chip { background: #fff; color: var(--ink); }
-table.std tr.q td { background: rgba(237,190,109,.07); }
+table.std tr.q td { background: rgba(31,166,90,.09); }
+table.std tr.out td { background: rgba(214,33,47,.06); }
+table.std tr.out td.rank::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #d6212f; }
 
 /* Tombol */
 .btn { background: linear-gradient(135deg, var(--blue), #12508c); }
@@ -810,3 +812,83 @@ table.std tr.q td { background: rgba(237,190,109,.07); }
 @media (min-width: 600px) { .gallery .g-arena, .gallery .g-kick, .gallery .g-siap { aspect-ratio: auto; } .gallery .g-arena { min-height: 0; } .gallery { grid-auto-rows: auto; } .gallery .g-kick, .gallery .g-siap { aspect-ratio: 4 / 5; } .gallery .g-arena { align-self: stretch; } }
 @media (hover: hover) { .gallery figure:hover img { transform: scale(1.04); } }
 @media (prefers-reduced-motion: reduce) { .gallery img { transition: none; } }
+
+/* Layar TV: kejadian tim A di kiri, tim B di kanan, menit di tengah */
+.tv-ev { display: grid; grid-template-columns: 1fr 6ch 1fr; align-items: center; gap: 1.4vw; }
+.tv-ev.s-c { display: flex; justify-content: center; gap: 1.4vw; color: #cbe0f6; }
+.tv-evl, .tv-evr { display: flex; align-items: center; gap: .9vw; min-width: 0; }
+.tv-evl { justify-content: flex-end; text-align: right; }
+.tv-evr { justify-content: flex-start; text-align: left; }
+.tv-ev .tv-min { min-width: 0; text-align: center; }
+.tv-evt b { font-weight: 600; }
+/* Bola di TV: putih dengan pentagon gelap, jelas dari jauh */
+.tv .ball { --b: #0b1b2e; width: 1.5em; height: 1.5em; filter: drop-shadow(0 0 .12em rgba(255,255,255,.35)); }
+.tv .ball.og { --b: #e0303f; }
+.tv .ball .bf.bs { fill: #fff; stroke: #0b1b2e; }
+.tv .ball.og .bf.bs { stroke: #e0303f; }
+.ball .bs.sm { stroke-width: 1.1; }
+.ball .bf.bs { stroke-width: 1.5; }
+
+/* Animasi gol: bola masuk gawang, lalu tulisan GOOOLL! */
+.goalfx { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: radial-gradient(circle at 50% 45%, rgba(15,58,99,.94), rgba(5,17,31,.97)); color: #fff; overflow: hidden; animation: gfxIn .35s ease-out both; }
+.goalfx.out { opacity: 0; transition: opacity .6s; }
+.gfx-rays { position: absolute; inset: -50%; background: repeating-conic-gradient(from 0deg, rgba(242,189,107,.16) 0 10deg, transparent 10deg 20deg); animation: gfxSpin 14s linear infinite; }
+.gfx-goal { position: absolute; top: 10vh; width: min(58vw, 92vh); height: auto; filter: drop-shadow(0 0 3vh rgba(0,0,0,.45)); }
+.gfx-net { transform-origin: 50% 50%; animation: gfxNet .7s 1.05s ease-out both; }
+.gfx-ball { position: absolute; left: 50%; top: 10vh; width: 15vh; height: 15vh; margin-left: -7.5vh; margin-top: 6vh; animation: gfxBall 1.15s cubic-bezier(.3,.6,.4,1) both; }
+.gfx-ball .ball { width: 100%; height: 100%; --b: #0b1b2e; filter: none; }
+.gfx-txt { position: absolute; left: 0; right: 0; bottom: 8vh; text-align: center; font-family: var(--font-d); text-transform: uppercase; }
+.gfx-big { font-size: clamp(60px, 22vh, 300px); font-weight: 800; line-height: .95; letter-spacing: .04em; color: #f2bd6b; text-shadow: 0 .04em 0 #8a5a00, 0 0 .5em rgba(242,189,107,.55); animation: gfxText .6s 1.1s cubic-bezier(.2,1.4,.4,1) both; }
+.gfx-who { margin-top: 1.2vh; font-size: clamp(24px, 6vh, 80px); font-weight: 700; animation: gfxFade .5s 1.5s both; }
+.gfx-who small { color: #f2bd6b; font-size: .75em; margin-left: .4em; }
+.gfx-team { font-size: clamp(18px, 4vh, 56px); color: #9fc6e8; letter-spacing: .06em; animation: gfxFade .5s 1.7s both; }
+@keyframes gfxIn { from { opacity: 0; } }
+@keyframes gfxSpin { to { transform: rotate(360deg); } }
+@keyframes gfxBall { 0% { transform: translate(-42vw, 62vh) scale(2.4) rotate(-540deg); } 70% { transform: translate(0, 12vh) scale(.9) rotate(0); } 100% { transform: translate(0, 14vh) scale(.62) rotate(30deg); } }
+@keyframes gfxNet { 40% { transform: scale(1.06, 1.1); } 70% { transform: scale(.98); } }
+@keyframes gfxText { from { opacity: 0; transform: scale(2.6); } }
+@keyframes gfxFade { from { opacity: 0; transform: translateY(2vh); } }
+@media (prefers-reduced-motion: reduce) { .goalfx { animation: none; } .gfx-rays { display: none; } }
+
+/* Pelanggaran (titik 1-5) dan pergantian */
+.fdots { display: inline-flex; gap: .3em; align-items: center; }
+.fd { display: inline-block; width: .8em; height: .8em; border-radius: 50%; border: 2px solid currentColor; opacity: .45; }
+.fd.on { background: #f2bd6b; border-color: #f2bd6b; opacity: 1; }
+.subic { display: inline-block; font-weight: 700; font-size: 1.1em; line-height: 1; color: var(--blue, #1969b4); }
+.susp-pub { margin-top: 12px; padding: 12px 16px; border-left: 5px solid #d6212f; }
+.susp-pub h3 { font-size: 17px; margin-bottom: 4px; }
+.susp-pub ul { margin: 0; padding-left: 18px; }
+.tv-foul { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .6vh 1vw; margin-top: .4vh; font-family: var(--font-d); font-weight: 600; font-size: clamp(14px, 2.6vh, 34px); color: #cbe0f6; letter-spacing: .04em; }
+.tv-foul .fd { width: 1.1vh; height: 1.1vh; min-width: 9px; min-height: 9px; border-width: 2px; }
+.tv-foul.hot { color: #ff9aa3; }
+.tv-foul.hot .fd.on { background: #ff5d6c; border-color: #ff5d6c; }
+.tv-foul small { flex-basis: 100%; font-size: .85em; color: #ff9aa3; letter-spacing: .02em; text-transform: none; }
+
+/* Bola lebih besar di mana-mana */
+.ball { width: 22px; height: 22px; }
+/* Jalannya laga: tim A kiri, tim B kanan */
+.tl2 { display: grid; grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr); gap: 10px; align-items: center; }
+.tl2 .min { text-align: center; }
+.tl-l, .tl-r { min-width: 0; }
+.tl-l { text-align: right; } .tl-r { text-align: left; }
+.tl-body { display: inline-flex; align-items: center; gap: 8px; text-align: left; }
+.tl-l .tl-body { flex-direction: row-reverse; text-align: right; }
+.tl2.s-c { display: flex; justify-content: center; gap: 10px; color: var(--ink-3); }
+@media (max-width: 520px) { .tl2 { grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr); gap: 6px; padding-left: 10px; padding-right: 10px; } }
+/* Total kartu di TV */
+.tv-cards { display: flex; justify-content: center; gap: 1.6vw; margin-top: .4vh; font-family: var(--font-d); font-weight: 700; font-size: clamp(18px, 3.6vh, 44px); }
+.tv-cards span { display: inline-flex; align-items: center; gap: .4em; }
+.tv-cards .ico { width: .7em; height: 1em; }
+.tv-susp { color: #ff9aa3; }
+/* Animasi kartu dan peluit akhir */
+.gfx-cardbox { position: absolute; top: 14vh; left: 50%; width: 18vh; height: 26vh; margin-left: -9vh; border-radius: 1.4vh; box-shadow: 0 0 6vh rgba(0,0,0,.5); animation: gfxCard .7s cubic-bezier(.2,1.3,.4,1) both; }
+.gfx-cardbox.y { background: #ffd400; } .gfx-cardbox.r { background: #e0182d; }
+.gfx-big.red { color: #ff5d6c; text-shadow: 0 .04em 0 #5a0a14, 0 0 .5em rgba(255,93,108,.55); }
+.cardfx .gfx-big { font-size: clamp(48px, 15vh, 220px); animation-delay: .35s; }
+.cardfx .gfx-who { animation-delay: .8s; } .cardfx .gfx-team { animation-delay: 1s; }
+.ftfx .gfx-txt { top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
+.gfx-ftl { font-size: clamp(22px, 6vh, 80px); letter-spacing: .14em; color: #9fc6e8; animation: gfxFade .5s both; }
+.gfx-ftrow { display: flex; justify-content: center; align-items: center; gap: 3vw; margin: 2vh 3vw; font-size: clamp(30px, 9vh, 130px); font-weight: 700; animation: gfxText .7s .3s cubic-bezier(.2,1.2,.4,1) both; }
+.gfx-ftrow b { font-size: 2.2em; color: #f2bd6b; font-variant-numeric: tabular-nums; }
+.gfx-ftrow span { flex: 1; } .gfx-ftrow span:first-child { text-align: right; } .gfx-ftrow span:last-child { text-align: left; }
+@keyframes gfxCard { from { transform: translateY(-60vh) rotate(-35deg) scale(.4); opacity: 0; } }
