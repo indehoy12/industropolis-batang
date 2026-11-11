@@ -7,7 +7,6 @@ import {
   QUALIFY_PER_GROUP, suspendedIn, suspReason, eventSide, cardTotals, syncServerTime, nowMs, lineupIds, ballSvg, teamProgress,
   skeleton, shootout, penScoreText, penDots, rtClockHtml, tickRtClocks,
 } from "./util.js";
-import { goalFxMarkup } from "./goalfx.js";
 import { teamSummary, playerProfile, headToHead, championInfo } from "./profile.js";
 
 const $app = document.getElementById("app");
@@ -986,17 +985,31 @@ function tvView() {
 // Gol yang sudah ada saat halaman TV dibuka tidak dianimasikan; hanya gol baru (maks 90 dtk lalu) di laga LIVE.
 const seenGoals = new Set();
 let goalsSeeded = false, goalFxTimer = 0;
-function tvGoalFx() {
+// Animasi gol: hanya tulisan "GOOOL!" + pencetak gol + skor, durasinya mengikuti panjang gol.mp3.
+// Tulisan baru muncul saat suara benar-benar mulai terputar (promise play), lalu memudar bersama suara.
+function tvGoalFx(e, m) {
   document.querySelector(".goalfx")?.remove();
-  const el = document.createElement("div");
-  el.className = "goalfx mini";
-  el.setAttribute("role", "status");
-  el.setAttribute("aria-label", "Gol");
-  el.innerHTML = goalFxMarkup();
-  document.body.appendChild(el);
   clearTimeout(goalFxTimer);
-  goalFxTimer = setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 550); }, 4000);
-  tvGoalSound();
+  const side = e && m ? eventSide(m, e) : null; // gol bunuh diri dihitung untuk tim lawan
+  const team = side === "a" ? sideName(m, "A") : side === "b" ? sideName(m, "B") : "";
+  const tag = e?.type === "own_goal" ? '<i class="tg og">OG</i>' : e?.pen ? '<i class="tg">P</i>' : "";
+  const who = e ? `<div class="gol-who">${esc(pName(e.playerId))} <b>${esc(eventMinute(e))}</b>${tag}</div>` : "";
+  const score = m ? `<div class="gol-score"><span>${esc(sideName(m, "A"))}</span><b>${esc(scoreText(m))}</b><span>${esc(sideName(m, "B"))}</span></div>` : "";
+  tvGoalSound().then((sec) => {
+    if (route().name !== "tv") return;
+    const total = Math.max(3.5, sec || 5); // detik; tanpa suara dipakai 5 dtk
+    const el = document.createElement("div");
+    el.className = "goalfx gol";
+    el.style.setProperty("--gd", total + "s");
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-label", "Gol");
+    el.innerHTML = `<div class="gol-flash"></div><i class="gol-ring"></i><i class="gol-ring r2"></i><i class="gol-ring r3"></i>
+      <div class="gol-wrap"><div class="gol-word">${[..."GOOOL!"].map((c, i) => `<span style="--i:${i}">${c}</span>`).join("")}</div>
+        ${who}${team ? `<div class="gol-team">${esc(team)}</div>` : ""}${score}</div>`;
+    document.querySelector(".goalfx")?.remove();
+    document.body.appendChild(el);
+    goalFxTimer = setTimeout(() => el.remove(), total * 1000 + 200);
+  });
 }
 
 // ---------- Suara gol ----------
@@ -1035,12 +1048,16 @@ function tvSoundHint(on) {
 }
 // Selalu coba putar gol.mp3, tanpa menunggu ketukan: bila peramban memang mengizinkan suara otomatis
 // (mode kios, atau Setelan situs: Suara = Izinkan), langsung bunyi. Bila diblokir, tombol pengingat muncul lagi.
-function tvGoalSound() {
+function tvGoalSound() { // hasil: lama suara (detik); 0 bila diblokir peramban
   const m = getMp3();
   m.muted = false; m.currentTime = 0;
-  m.play().then(() => { if (!sndReady) { sndReady = true; document.querySelector(".tv-snd")?.remove(); } }).catch((err) => {
-    if (err && err.name === "NotAllowedError") { sndReady = false; tvSoundHint(true); return; } // diblokir peramban: butuh ketukan
+  return m.play().then(() => {
+    if (!sndReady) { sndReady = true; document.querySelector(".tv-snd")?.remove(); }
+    return Number.isFinite(m.duration) && m.duration > 0 ? m.duration : 7;
+  }).catch((err) => {
+    if (err && err.name === "NotAllowedError") { sndReady = false; tvSoundHint(true); return 0; } // diblokir peramban: butuh ketukan
     synthGoal(); // file hilang / rusak: pakai suara buatan
+    return 3.5;
   });
 }
 function synthGoal() {
@@ -1105,7 +1122,7 @@ function tvCheckGoals(onTv) {
   if (justFt.length) { tvFtFx(justFt[0]); return; }
   if (fresh.length) {
     const e = fresh.sort(evSort).pop(), m = state.matchById[e.matchId];
-    if (m && m.status === "live" && !m.correcting && recent(e)) tvGoalFx();
+    if (m && m.status === "live" && !m.correcting && recent(e)) tvGoalFx(e, m);
   }
 }
 
