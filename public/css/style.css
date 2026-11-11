@@ -4926,3 +4926,63 @@ table.std tr.out td.rank::before {
     display: none;
   }
 }
+
+/* ---------- Ikon bola vektor (menggantikan ball.png) ---------- */
+.ball {
+  background: none !important;
+  border-radius: 0;
+  position: static;
+  filter: none;
+}
+.ball svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ball > i {
+  display: none;
+}
+.tv .ball {
+  --b: #0b1b2e;
+  --bw: #fff;
+  --br: #fff;
+  --brw: 3.2;
+  filter: drop-shadow(0 0 0.1em rgba(255, 255, 255, 0.3));
+} /* di TV: tepi putih tipis yang seragam */
+.tv .ball.og {
+  --b: #e0303f;
+}
+
+/* ---------- TV: layar istirahat ---------- */
+.tv-brk {
+  margin-top: 1.2vh;
+  font-family: var(--font-d);
+  font-size: clamp(16px, 3vh, 40px);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #cbe0f6;
+}
+.tv-brk + .tv-clock {
+  margin-top: 0;
+}
+.tv-fade {
+  animation: tvFadeIn 0.7s ease both;
+}
+@keyframes tvFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(1vh);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tv-feed.brk {
+  height: 24vh;
+  min-height: 24vh;
+  max-height: 24vh;
+} /* tinggi tetap supaya skor tidak bergeser saat isi berganti */
+.tv-feed.brk .tv-goals {
+  height: 100%;
+}

@@ -867,7 +867,7 @@ document.addEventListener("click", (e) => {
 
 // ---------- Layar TV / proyektor (#/tv) ----------
 // Tanpa menu, huruf besar, skor + jam + kejadian terbaru. Beberapa laga live: bergantian tiap 15 detik.
-let tvIdx = 0;
+let tvIdx = 0, tvHtIdx = 0;
 const tvTop = (label) => `<header class="tv-top"><span class="tv-brand"><img src="assets/logo.png" alt="" data-sitelogo><span class="tv-brand-t"><b>${esc(TOURNAMENT.line1.toUpperCase())}</b><i>${esc(TOURNAMENT.line2.toUpperCase())}</i></span></span><span class="tv-label">${label}</span>${rtClockHtml("tvc")}</header>`;
 const tvSponsors = `<footer class="tv-sponsors"><img src="assets/logo-industropolis.png" alt="Industropolis Batang"><i></i><img src="assets/logo-sez.png" alt="Indonesia SEZ"><i></i><img src="assets/logo-danantara.png" alt="Danantara Indonesia"></footer>`;
 // Gol di TV (gaya papan skor Google): gol tim A di kiri, tim B di kanan, ikon bola di tengah.
@@ -949,14 +949,24 @@ function tvView() {
   if (live.length) {
     const m = live[tvIdx % live.length];
     const so = shootout(m).any && (m.scoreA ?? 0) === (m.scoreB ?? 0) ? `<div class="tv-note">Adu penalti ${penScoreText(m)}</div>` : "";
+    // Saat istirahat: ada keterangan hitung mundur, dan bagian bawah bergantian (gol, jadwal berikutnya, top scorer) supaya tidak diam 5 menit.
+    const ph = phaseOf(m), brk = ph === "ht" || ph === "etb";
+    const brkLabel = brk ? `<div class="tv-brk">${ph === "ht" ? "Babak 2 dimulai dalam" : "Perpanjangan waktu dimulai dalam"}</div>` : "";
+    let feedHtml = tvGoals(m);
+    if (brk) {
+      const upc = ms.filter((x) => x.status === "scheduled").sort(sortByKickoff).slice(0, 3);
+      const st = computePlayerStats(state.players, state.events, state.teams, state.matches);
+      const panes = [() => tvGoals(m), upc.length ? () => tvSchedule(upc) : null, topBy(st, "goals", 1).length ? () => tvStats(st) : null].filter(Boolean);
+      feedHtml = `<div class="tv-fade" data-k="${tvHtIdx % panes.length}">${panes[tvHtIdx % panes.length]()}</div>`;
+    }
     return `<div class="tv">${tvTop(matchLabel(m))}
       <section class="tv-main">${tvTeam(m, "A")}
         <div class="tv-mid"><div class="tv-score">${scoreText(m)}</div>
-          <div class="tv-clock" data-clockbig="${esc(m.id)}">${esc(clockText(m))}</div>
+          ${brkLabel}<div class="tv-clock" data-clockbig="${esc(m.id)}">${esc(clockText(m))}</div>
           <div class="tv-status">${statusPill(m)}</div>
           ${addedText(m) ? `<div class="tv-note">${esc(addedText(m))}</div>` : ""}${so}</div>
         ${tvTeam(m, "B")}</section>
-      <section class="tv-feed">${tvGoals(m)}
+      <section class="tv-feed${brk ? " brk" : ""}">${feedHtml}
         ${live.length > 1 ? `<div class="tv-dots">${live.map((_, i) => `<i class="${i === tvIdx % live.length ? "on" : ""}"></i>`).join("")}</div>` : ""}</section>${tvSponsors}</div>`;
   }
 
@@ -1164,6 +1174,12 @@ setInterval(() => {
   if (liveN > 1) { tvIdx++; lastHtml = ""; render(); }
   
 }, 15000);
+setInterval(() => { // istirahat: ganti isi bagian bawah tiap 10 dtk
+  if (route().name !== "tv" || !isReady()) return;
+  const lv = state.matches.filter((m) => m.status === "live" && !m.correcting).sort(sortByKickoff);
+  const m = lv.length ? lv[tvIdx % lv.length] : null;
+  if (m && (phaseOf(m) === "ht" || phaseOf(m) === "etb")) { tvHtIdx++; lastHtml = ""; render(); }
+}, 10000);
 
 // layar tidak boleh mati saat dipakai sebagai papan skor; klik dua kali atau tekan F = layar penuh
 let wakeLock = null;
