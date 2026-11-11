@@ -4,9 +4,11 @@ import {
   TOURNAMENT, STAGES, esc, timeStr, dayLong, dayShort, dayKey, toDate, sortByKickoff,
   clockText, computeStandings, computePlayerStats, computeKeeperStats, keeperDetail, topBy, computeBracket, winnerSide,
   livePill, ftText, addedText, eventMinute, eventCmp, phaseOf,
-  QUALIFY_PER_GROUP, suspendedIn, suspReason, eventSide, cardTotals, syncServerTime, nowMs, lineupIds, ballSvg,
+  QUALIFY_PER_GROUP, suspendedIn, suspReason, eventSide, cardTotals, syncServerTime, nowMs, lineupIds, ballSvg, teamProgress,
   skeleton, shootout, penScoreText, penDots, rtClockHtml, tickRtClocks,
 } from "./util.js";
+import { goalFxMarkup } from "./goalfx.js";
+import { teamSummary, playerProfile, headToHead, championInfo } from "./profile.js";
 
 const $app = document.getElementById("app");
 const $nav = document.getElementById("nav");
@@ -73,6 +75,7 @@ const NAV = [
     ["#/jadwal", "Jadwal", "jadwal"],
     ["#/klasemen", "Klasemen", "klasemen"],
     ["#/statistik", "Statistik", "statistik"],
+    ["#/juara", "Juara & arsip", "juara"],
   ] },
 ];
 let subOpen = false;
@@ -217,6 +220,7 @@ function homeView() {
     </div></div>`;
 
   if (a?.active && (a.title || a.body)) h += `<div class="announce"><h3>${esc(a.title)}</h3><p>${esc(a.body)}</p></div>`;
+  if (champOn()) { const ci = championInfo(state.matches); h += `<a class="champ-banner" href="#/juara"><small>Turnamen selesai</small><b>Juara: ${esc(tName(ci.champion))}</b><span>Lihat juara dan arsip turnamen →</span></a>`; }
   h += '<div class="home-grid"><div class="hcol">';
   if (live.length) {
     h += `<div class="head"><h2>Sedang berlangsung</h2></div>` + live.map((m) => `<a class="livecard" href="#/laga/${esc(m.id)}">
@@ -346,7 +350,7 @@ function baganView() {
 function playerRows(list, key, unit) {
   if (!list.length) return `<p class="empty">Belum ada data.</p>`;
   return list.map((p, i) => `<div class="prow"><span class="n">${i + 1}</span>
-    <span class="who"><b>${esc(p.name)}</b><span>${esc(tName(p.teamId))}</span></span><span class="v">${p[key]}${unit ? ` <small>${unit}</small>` : ""}</span></div>`).join("");
+    <span class="who"><b><a class="plink" href="#/pemain/${esc(p.id)}">${esc(p.name)}</a></b><span>${esc(tName(p.teamId))}</span></span><span class="v">${p[key]}${unit ? ` <small>${unit}</small>` : ""}</span></div>`).join("");
 }
 function keeperAward(gk) {
   const d = keeperDetail(gk.id, state.players, state.matches, state.teams, state.events);
@@ -388,8 +392,79 @@ function timView() {
       const officials = state.players.filter((p) => p.teamId === t.id && p.role === "official");
       return `<details class="team" data-team="${esc(t.id)}" ${openTeams.has(t.id) ? "open" : ""}>
         <summary>${badge(t)}<span>${esc(t.name)}</span><span class="c">${roster.length} pemain</span></summary>
-        <div class="roster">${roster.length ? roster.map((p) => `<div class="pl"><span class="no">${p.number ?? ""}</span><span>${esc(p.name)}</span>${p.isGK ? '<span class="badge-gk">GK</span>' : ""}${p.isCaptain ? '<span class="badge-gk badge-cap">C</span>' : ""}</div>`).join("") : `<p class="muted small" style="padding:6px 0">Pemain belum diinput.</p>`}${officials.length ? `<p class="muted small ofs">Official: ${officials.map((o) => esc(o.name)).join(", ")}</p>` : ""}</div></details>`;
+        <div class="roster"><a class="tprofile" href="#/tim/${esc(t.id)}">Profil dan riwayat tim →</a>${roster.length ? roster.map((p) => `<div class="pl"><span class="no">${p.number ?? ""}</span><span><a class="plink" href="#/pemain/${esc(p.id)}">${esc(p.name)}</a></span>${p.isGK ? '<span class="badge-gk">GK</span>' : ""}${p.isCaptain ? '<span class="badge-gk badge-cap">C</span>' : ""}</div>`).join("") : `<p class="muted small" style="padding:6px 0">Pemain belum diinput.</p>`}${officials.length ? `<p class="muted small ofs">Official: ${officials.map((o) => esc(o.name)).join(", ")}</p>` : ""}</div></details>`;
     }).join("")}</div>`).join("") + `</div>${footer}`;
+}
+
+// ---------- Profil tim dan pemain ----------
+const sbox = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
+const resChip = (r) => (r ? `<span class="rchip r-${r.res}" title="${r.res === "M" ? "Menang" : r.res === "K" ? "Kalah" : "Seri"}">${r.res}</span>` : "");
+const evIcons = (rw) => [
+  rw.goals.length ? `<span class="pe">${ballSvg()}${rw.goals.map((e) => eventMinute(e)).join(", ")}${rw.goals.some((e) => e.pen) ? ' <i class="evtag">P</i>' : ""}</span>` : "",
+  rw.og.length ? `<span class="pe">${ballSvg("og")}${rw.og.map((e) => eventMinute(e)).join(", ")} <i class="evtag og">OG</i></span>` : "",
+  rw.assists.length ? `<span class="pe">Assist ${rw.assists.length}</span>` : "",
+  rw.yellow.length ? `<span class="pe"><span class="ico yc"></span>${rw.yellow.length}</span>` : "",
+  rw.red.length ? `<span class="pe"><span class="ico rc"></span>${rw.red.length}</span>` : "",
+].join("");
+function teamProfileView(id) {
+  const t = state.teamById[id];
+  if (!t) return `<a class="back" href="#/tim">← Tim</a><div class="sheet"><p class="empty">Tim tidak ditemukan.</p></div>`;
+  const s = teamSummary(id, state), prog = teamProgress(id, state.teams, state.matches, state.events);
+  const played = (pid) => state.matches.filter((m) => m.status !== "scheduled" && (lineupIds(m, "A").includes(pid) || lineupIds(m, "B").includes(pid))).length;
+  const hist = s.history.length ? s.history.map(({ m, opp, r }) => `<a class="hrow" href="#/laga/${esc(m.id)}"><span class="hw">${resChip(r)}</span>
+      <span class="hv">${m.teamA === id ? "" : "@ "}${esc(opp ? tName(opp) : "Belum ditentukan")}<small>${matchLabel(m)}${m.kickoff ? " · " + dayShort(m.kickoff) : ""}</small></span>
+      <b>${r ? `${r.my} – ${r.opp}${r.pen ? ` <small>(pen ${r.pen === "menang" ? "menang" : "kalah"})</small>` : ""}` : m.status === "live" ? "LIVE" : timeStr(m.kickoff)}</b></a>`).join("") : `<p class="empty">Belum ada jadwal.</p>`;
+  return `<a class="back" href="#/tim">← Tim</a>
+    <div class="ph"><div class="ph-top">${badge(t, false, "lg")}<div><h2>${esc(t.name)}</h2><p>${t.group ? `Grup ${esc(t.group)} · ` : ""}${esc(prog.label)}</p></div></div>
+    <div class="sgrid">${sbox(s.played, "Main")}${sbox(`${s.w}-${s.d}-${s.l}`, "M-S-K")}${sbox(s.gf, "Gol")}${sbox(s.ga, "Kebobolan")}${sbox(s.assists, "Assist")}${sbox(s.yellow, "Kuning")}${sbox(s.red, "Merah")}</div></div>
+    <div class="head"><h2>Pemain</h2></div>
+    <div class="sheet" style="overflow-x:auto">${s.roster.length ? `<table class="std ptbl"><thead><tr><th>#</th><th class="tm">Pemain</th><th>Main</th><th>Gol</th><th>Ast</th><th><span class="ico yc"></span></th><th><span class="ico rc"></span></th></tr></thead><tbody>${s.roster.map((p) => `<tr><td class="rank">${p.number ?? ""}</td><td class="tm"><a class="plink" href="#/pemain/${esc(p.id)}">${esc(p.name)}</a>${p.isGK ? ' <span class="badge-gk">GK</span>' : ""}${p.isCaptain ? ' <span class="badge-gk badge-cap">C</span>' : ""}</td><td>${played(p.id)}</td><td>${p.goals}</td><td>${p.assists}</td><td>${p.yellow}</td><td>${p.red}</td></tr>`).join("")}</tbody></table>` : `<p class="empty">Pemain belum diinput.</p>`}</div>
+    <div class="head"><h2>Riwayat laga</h2></div><div class="sheet">${hist}</div>${footer}`;
+}
+function playerProfileView(id) {
+  const d = playerProfile(id, state);
+  if (!d || d.p.role === "official") return `<a class="back" href="#/tim">← Tim</a><div class="sheet"><p class="empty">Pemain tidak ditemukan.</p></div>`;
+  const { p, stat, rows, keeper } = d, t = state.teamById[p.teamId];
+  const boxes = [sbox(d.played, "Main"), sbox(stat.goals, "Gol"), sbox(stat.assists, "Assist"), sbox(stat.yellow, "Kuning"), sbox(stat.red, "Merah")];
+  if (stat.ownGoals) boxes.push(sbox(stat.ownGoals, "Gol bunuh diri"));
+  if (keeper && keeper.played) boxes.push(sbox(keeper.cleanSheets, "Clean sheet"), sbox(keeper.conceded, "Kebobolan"));
+  const hist = rows.length ? [...rows].reverse().map((rw) => `<a class="hrow" href="#/laga/${esc(rw.m.id)}"><span class="hw">${resChip(rw.r)}</span>
+      <span class="hv">vs ${esc(rw.opp ? tName(rw.opp) : "–")}<small>${matchLabel(rw.m)}${rw.m.kickoff ? " · " + dayShort(rw.m.kickoff) : ""}</small><span class="pes">${evIcons(rw) || '<span class="muted small">Tanpa catatan</span>'}</span></span>
+      <b>${rw.r ? `${rw.r.my} – ${rw.r.opp}` : "LIVE"}</b></a>`).join("") : `<p class="empty">Belum ada laga.</p>`;
+  return `<a class="back" href="${t ? "#/tim/" + esc(t.id) : "#/tim"}">← ${esc(t?.name || "Tim")}</a>
+    <div class="ph"><div class="ph-top"><span class="ph-no">${p.number ?? ""}</span><div><h2>${esc(p.name)}</h2><p>${t ? `<a class="plink" href="#/tim/${esc(t.id)}">${esc(t.name)}</a>` : ""}${p.isGK ? ' <span class="badge-gk">GK</span>' : ""}${p.isCaptain ? ' <span class="badge-gk badge-cap">C</span>' : ""}</p></div></div>
+    <div class="sgrid">${boxes.join("")}</div></div>
+    <div class="head"><h2>Riwayat laga</h2></div><div class="sheet">${hist}</div>${footer}`;
+}
+
+// ---------- Juara dan arsip ----------
+const champOn = () => isReady() && !!championInfo(state.matches);
+function juaraView() {
+  const info = championInfo(state.matches);
+  const done = state.matches.filter((m) => m.status === "ft");
+  const stats = computePlayerStats(state.players, state.events, state.teams, state.matches);
+  const std = computeStandings(state.teams, state.matches, state.events);
+  const goals = state.events.filter((e) => e.type === "goal" || e.type === "own_goal").length;
+  const cards = (ty) => state.events.filter((e) => e.type === ty).length;
+  const gk = state.playerById[state.settings.bestGkId];
+  const place = (label, id) => id ? `<a class="podrow" href="#/tim/${esc(id)}">${badge(state.teamById[id], true)}<span><small>${label}</small><b>${esc(tName(id))}</b></span></a>` : "";
+  const top = (key, label) => { const p = topBy(stats, key, 1)[0]; return `<div class="aw"><small>${label}</small><b>${p ? `<a class="plink" href="#/pemain/${esc(p.id)}">${esc(p.name)}</a>` : "–"}</b><span>${p ? `${esc(tName(p.teamId))} · ${p[key]}` : "Belum ada"}</span></div>`; };
+  const hero = info
+    ? `<div class="champ"><small>Juara</small>${badge(state.teamById[info.champion], false, "lg")}<h2>${esc(tName(info.champion))}</h2>
+        <p>Final: ${esc(sideName(info.fin, "A"))} ${info.fin.scoreA ?? 0} – ${info.fin.scoreB ?? 0} ${esc(sideName(info.fin, "B"))}${penNote(info.fin)}</p><a class="tprofile" href="#/laga/${esc(info.fin.id)}">Lihat laga final →</a></div>
+       <div class="podium">${place("Runner-up", info.runnerUp)}${place("Juara 3", info.third)}${place("Peringkat 4", info.fourth)}</div>`
+    : `<div class="champ idle"><h2>Turnamen belum selesai</h2><p>Halaman ini menampilkan juara setelah final selesai. Sementara itu, arsip hasil di bawah terus bertambah.</p></div>`;
+  const awards = `<div class="awards">${top("goals", "Top scorer")}${top("assists", "Top assist")}<div class="aw"><small>Kiper terbaik</small><b>${gk ? `<a class="plink" href="#/pemain/${esc(gk.id)}">${esc(gk.name)}</a>` : "–"}</b><span>${gk ? esc(tName(gk.teamId)) : "Dipilih panitia"}</span></div></div>`;
+  const nums = `<div class="sgrid">${sbox(done.length, "Laga")}${sbox(goals, "Gol")}${sbox(done.length ? (goals / done.length).toFixed(1) : "0", "Gol per laga")}${sbox(cards("yellow"), "Kuning")}${sbox(cards("red"), "Merah")}</div>`;
+  const order = ["final", "third", "sf", "qf"];
+  const arch = order.map((st) => ({ st, l: done.filter((m) => m.stage === st).sort((a, b) => sortByKickoff(b, a)) })).filter((x) => x.l.length)
+    .map((x) => `<div class="daygroup">${STAGES[x.st]}</div><div class="sheet">${x.l.map(resultRow).join("")}</div>`).join("");
+  const groups = groupsOf(std).map((g) => {
+    const l = done.filter((m) => (m.stage === "group" || !m.stage) && m.group === g).sort(sortByKickoff);
+    return `<div class="daygroup">Grup ${esc(g)}</div><div class="sheet">${standingsTable(std[g], QUALIFY_PER_GROUP, groupDone(g))}</div>${l.length ? `<div class="sheet">${l.map(resultRow).join("")}</div>` : ""}`;
+  }).join("");
+  return `${hero}<div class="head"><h2>Penghargaan</h2></div>${awards}<div class="head"><h2>Angka turnamen</h2></div>${nums}
+    <div class="head"><h2>Arsip hasil</h2></div>${arch}${groups || (!arch ? `<p class="empty">Belum ada pertandingan yang selesai.</p>` : "")}${footer}`;
 }
 
 // ---------- Detail laga ----------
@@ -420,12 +495,22 @@ function tlRow(m, e) {
   return `<div class="tl tl2 s-${sd}"><div class="tl-l">${sd === "a" ? body : ""}</div><span class="min">${eventMinute(e)}</span><div class="tl-r">${sd === "b" ? body : ""}</div></div>`;
 }
 
+/** Gol dikelompokkan per pemain (urut menurut gol pertamanya) supaya nama yang sama tampil sekali dengan menit dipisah koma. */
+function groupGoals(list) {
+  const map = new Map();
+  for (const e of list) { const k = e.playerId + (e.type === "own_goal" ? "|og" : ""); if (!map.has(k)) map.set(k, []); map.get(k).push(e); }
+  return [...map.values()];
+}
 function scorersList(m, side) {
   const me = side === "A" ? m.teamA : m.teamB;
   const list = state.events
     .filter((e) => e.matchId === m.id && ((e.type === "goal" && e.teamId === me) || (e.type === "own_goal" && e.teamId !== me)))
     .sort(evSort);
-  return list.map((e) => `<p>${ballSvg(e.type === "own_goal" ? "og" : "")} ${esc(pName(e.playerId))} ${eventMinute(e)}${e.pen ? ' <i class="evtag">P</i>' : ""}${e.type === "own_goal" ? ' <i class="evtag og">OG</i>' : ""}</p>`).join("");
+  return groupGoals(list).map((g) => {
+    const og = g[0].type === "own_goal", ic = ballSvg(og ? "og" : "");
+    const txt = `<span class="sn">${esc(pName(g[0].playerId))} ${g.map((e) => eventMinute(e) + (e.pen ? ' <i class="evtag">P</i>' : "")).join(", ")}${og ? ' <i class="evtag og">OG</i>' : ""}</span>`;
+    return `<p>${side === "B" ? txt + ic : ic + txt}</p>`; // tim kanan: bola di tepi kanan supaya lurus satu kolom
+  }).join("");
 }
 
 function lineupCol(m, side, events) {
@@ -451,6 +536,19 @@ function cmpRow(label, a, b) {
   const max = Math.max(a, b, 1);
   return `<div class="cmp"><div class="lab"><span>${a}</span><em>${label}</em><span>${b}</span></div>
     <div class="bars"><div class="bar" style="justify-content:flex-end"><i style="width:${(a / max) * 100}%"></i></div><div class="bar r"><i style="width:${(b / max) * 100}%"></i></div></div></div>`;
+}
+
+// ---------- Riwayat pertemuan ----------
+function h2hCard(m) {
+  const h = headToHead(m, state.matches);
+  if (!h) return "";
+  const A = esc(sideName(m, "A")), B = esc(sideName(m, "B"));
+  const inner = h.list.length
+    ? `<div class="h2h-sum"><div><b>${h.w}</b><span>${A} menang</span></div><div><b>${h.d}</b><span>Seri</span></div><div><b>${h.l}</b><span>${B} menang</span></div></div>
+       <p class="h2h-goals">Total gol: ${A} ${h.gf} – ${h.ga} ${B}</p>
+       ${h.list.map((x) => `<div class="h2h-item">${resultRow(x)}<small>${matchLabel(x)}${x.kickoff ? " · " + dayShort(x.kickoff) : ""}</small></div>`).join("")}`
+    : `<p class="empty">Belum ada pertemuan sebelumnya antara kedua tim di turnamen ini.</p>`;
+  return `<div class="sheet h2h"><h3 style="font-family:var(--font-d);font-size:22px;padding:12px 16px 4px">Riwayat pertemuan</h3>${inner}</div>`;
 }
 
 function matchView(r) {
@@ -505,6 +603,8 @@ function matchView(r) {
       ${cmpRow("Gol bunuh diri", c(evA, (e) => e.type === "own_goal"), c(evB, (e) => e.type === "own_goal"))}
 </div>`;
   }
+
+  if (tab === "ringkasan") body += h2hCard(m);
 
   const motm = m.motmId && state.playerById[m.motmId]
     ? `<div class="motm"><div class="tag">Man of the Match</div><p class="name">${esc(pName(m.motmId))}</p><p>${esc(tName(state.playerById[m.motmId].teamId))}</p></div>`
@@ -646,13 +746,13 @@ document.addEventListener("click", (e) => {
 
 // ---------- Render ----------
 function renderNav(name) {
-  const active = name === "laga" ? "jadwal" : name;
+  const active = name === "laga" ? "jadwal" : name === "pemain" ? "tim" : name;
   $nav.innerHTML = NAV.map((n) => {
     if (!n.sub) return `<a href="${n.href}" class="${n.key === active ? "on" : ""}" ${n.key === active ? 'aria-current="page"' : ""}>${n.label}</a>`;
     const on = n.sub.some((x) => x[2] === active);
     return `<div class="has-sub ${on ? "on" : ""} ${subOpen ? "open" : ""}">
       <button type="button" class="subbtn" data-sub aria-expanded="${subOpen}" aria-haspopup="true">${n.label}<i class="caret" aria-hidden="true"></i></button>
-      <div class="submenu">${n.sub.map(([href, label, key]) => `<a href="${href}" class="${key === active ? "on" : ""}" ${key === active ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</div></div>`;
+      <div class="submenu">${n.sub.filter(([, , key]) => key !== "juara" || champOn()).map(([href, label, key]) => `<a href="${href}" class="${key === active ? "on" : ""}" ${key === active ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</div></div>`;
   }).join("");
 }
 function setSub(open) {
@@ -718,7 +818,9 @@ function render() {
       case "klasemen": html = klasemenView(); break;
       case "bagan": html = baganView(); break;
       case "statistik": html = statistikView(); break;
-      case "tim": html = timView(); break;
+      case "tim": html = r.id ? teamProfileView(r.id) : timView(); break;
+      case "pemain": html = playerProfileView(r.id); break;
+      case "juara": html = juaraView(); break;
       case "laga": html = matchView(r); break;
       case "tv": html = tvView(); break;
       default: html = homeView();
@@ -771,14 +873,15 @@ const tvTop = (label) => `<header class="tv-top"><span class="tv-brand"><img src
 const tvSponsors = `<footer class="tv-sponsors"><img src="assets/logo-industropolis.png" alt="Industropolis Batang"><i></i><img src="assets/logo-sez.png" alt="Indonesia SEZ"><i></i><img src="assets/logo-danantara.png" alt="Danantara Indonesia"></footer>`;
 // Gol di TV (gaya papan skor Google): gol tim A di kiri, tim B di kanan, ikon bola di tengah.
 // Kartu, kiper, dan kejadian lain tidak tampil di TV; lengkapnya ada di Ringkasan laga.
-const tvBall = `<svg class="tv-ballic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#fff"/><path d="M12 7.2l4.2 3-1.6 4.9H9.4L7.8 10.2z" fill="#0b1b2e"/><path d="M12 7.2V2.4M16.2 10.2l4.4-1.5M14.6 15.1l2.7 3.8M9.4 15.1l-2.7 3.8M7.8 10.2L3.4 8.7" stroke="#0b1b2e" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg>`;
+const tvBall = ballSvg();
 function tvGoals(m) {
   const gs = state.events.filter((e) => e.matchId === m.id && (e.type === "goal" || e.type === "own_goal")).sort(evSort);
   if (!gs.length) return `<p class="tv-empty">Belum ada gol.</p>`;
-  const list = (side) => gs.filter((e) => eventSide(m, e) === side)
-    .map((e) => `<p>${esc(pName(e.playerId))} <b>${eventMinute(e)}</b>${e.type === "own_goal" ? " <i>(gol bunuh diri)</i>" : e.pen ? " <i>(penalti)</i>" : ""}</p>`).join("");
-  const n = Math.max(gs.filter((e) => eventSide(m, e) === "a").length, gs.filter((e) => eventSide(m, e) === "b").length);
-  return `<div class="tv-goals ${n > 5 ? "xs" : n > 3 ? "sm" : ""}"><div class="tvg-a">${list("a")}</div><div class="tvg-ic">${tvBall}</div><div class="tvg-b">${list("b")}</div></div>`;
+  const col = (side) => groupGoals(gs.filter((e) => eventSide(m, e) === side));
+  const A = col("a"), B = col("b");
+  const list = (groups) => groups.map((g) => `<p>${esc(pName(g[0].playerId))} <b>${g.map((e) => eventMinute(e) + (e.pen ? ' <i class="tg">P</i>' : "")).join(", ")}</b>${g[0].type === "own_goal" ? ' <i class="tg og">OG</i>' : ""}</p>`).join("");
+  const n = Math.max(A.length, B.length);
+  return `<div class="tv-goals ${n > 5 ? "xs" : n > 3 ? "sm" : ""}"><div class="tvg-a">${list(A)}</div><div class="tvg-ic">${tvBall}</div><div class="tvg-b">${list(B)}</div></div>`;
 }
 const tvCards = (m, side) => {
   if (m.status === "scheduled") return "";
@@ -840,7 +943,7 @@ function tvPaneList(next) {
 const tvDots = (n) => n > 1 ? `<div class="tv-dots">${Array.from({ length: n }, (_, i) => `<i class="${i === tvPane % n ? "on" : ""}"></i>`).join("")}</div>` : "";
 function tvView() {
   const ms = state.matches;
-  const live = ms.filter((m) => m.status === "live").sort(sortByKickoff);
+  const live = ms.filter((m) => m.status === "live" && !m.correcting).sort(sortByKickoff); // laga yang dibuka admin untuk koreksi tidak tampil di TV
   const next = ms.filter((m) => m.status === "scheduled").sort(sortByKickoff)[0];
   const last = ms.filter((m) => m.status === "ft").sort((a, b) => sortByKickoff(b, a))[0];
 
@@ -889,14 +992,10 @@ function tvGoalFx() {
   el.className = "goalfx mini";
   el.setAttribute("role", "status");
   el.setAttribute("aria-label", "Gol");
-  el.innerHTML = `<div class="gfx-box">
-    <svg class="gfx-goal" viewBox="0 0 400 220" aria-hidden="true"><defs><pattern id="gfxnet" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M0 0L16 16M16 0L0 16" stroke="#fff" stroke-opacity=".35" stroke-width="1.2"/></pattern></defs>
-      <g class="gfx-net"><rect x="30" y="30" width="340" height="170" fill="url(#gfxnet)"/></g>
-      <path d="M22 205V22H378V205" fill="none" stroke="#fff" stroke-width="12" stroke-linejoin="round"/></svg>
-    <div class="gfx-ball">${ballSvg()}</div></div>`;
+  el.innerHTML = goalFxMarkup();
   document.body.appendChild(el);
   clearTimeout(goalFxTimer);
-  goalFxTimer = setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 500); }, 3200);
+  goalFxTimer = setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 550); }, 4000);
   tvGoalSound();
 }
 
@@ -904,24 +1003,29 @@ function tvGoalFx() {
 // Bila ada file assets/gol.mp3 (rekaman "GOOOLL!" + sorak penonton), file itu yang diputar.
 // Bila tidak ada, dibuat suara sorak + klakson + ucapan "Gooool" lewat peramban.
 // Peramban hanya mengizinkan suara setelah layar diketuk / ditekan tombol sekali; tombol kecil di pojok TV mengingatkan.
-const goalMp3 = new Audio("assets/gol.mp3");
-let mp3Ok = true, actx = null, sndReady = false;
-goalMp3.preload = "auto";
-goalMp3.addEventListener("error", () => { mp3Ok = false; });
+// File dibuat hanya saat layar TV dibuka (pengunjung biasa tidak ikut mengunduh gol.mp3).
+let goalMp3 = null, actx = null, sndReady = false;
+const getMp3 = () => goalMp3 || (goalMp3 = Object.assign(new Audio("assets/gol.mp3"), { preload: "auto", volume: 1 }));
 function tvSoundUnlock() {
   if (sndReady) return;
+  sndReady = true;
+  document.querySelector(".tv-snd")?.remove();
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
     actx.resume?.();
-    sndReady = true;
     try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } catch {}
-    goalMp3.muted = true; goalMp3.play().then(() => { goalMp3.pause(); goalMp3.currentTime = 0; goalMp3.muted = false; }).catch(() => { goalMp3.muted = false; });
+    const m = getMp3(); // putar senyap sekali di dalam ketukan supaya peramban mengizinkan suara berikutnya
+    m.muted = true;
+    m.play().then(() => { m.pause(); m.currentTime = 0; m.muted = false; }).catch(() => { m.muted = false; });
   } catch { /* tanpa suara */ }
-  document.querySelector(".tv-snd")?.remove();
 }
 ["pointerdown", "keydown", "touchstart"].forEach((t) => document.addEventListener(t, () => { if (route().name === "tv") tvSoundUnlock(); }, { passive: true }));
 function tvSoundHint(on) {
   const old = document.querySelector(".tv-snd");
+  if (on) {
+    getMp3(); // mulai mengunduh gol.mp3 begitu layar TV dibuka
+    try { if (navigator.getAutoplayPolicy?.("mediaelement") === "allowed") sndReady = true; } catch {} // peramban sudah mengizinkan suara otomatis: tombol tidak perlu
+  }
   if (!on || sndReady) { old?.remove(); return; }
   if (old) return;
   const b = document.createElement("button");
@@ -929,13 +1033,19 @@ function tvSoundHint(on) {
   b.addEventListener("click", tvSoundUnlock);
   document.body.appendChild(b);
 }
+// Selalu coba putar gol.mp3, tanpa menunggu ketukan: bila peramban memang mengizinkan suara otomatis
+// (mode kios, atau Setelan situs: Suara = Izinkan), langsung bunyi. Bila diblokir, tombol pengingat muncul lagi.
 function tvGoalSound() {
-  if (!sndReady) return;
-  if (mp3Ok) { goalMp3.currentTime = 0; goalMp3.play().catch(synthGoal); return; }
-  synthGoal();
+  const m = getMp3();
+  m.muted = false; m.currentTime = 0;
+  m.play().then(() => { if (!sndReady) { sndReady = true; document.querySelector(".tv-snd")?.remove(); } }).catch((err) => {
+    if (err && err.name === "NotAllowedError") { sndReady = false; tvSoundHint(true); return; } // diblokir peramban: butuh ketukan
+    synthGoal(); // file hilang / rusak: pakai suara buatan
+  });
 }
 function synthGoal() {
   try {
+    if (!actx) return;
     const t = actx.currentTime, out = actx.createGain();
     out.gain.value = 0.9; out.connect(actx.destination);
     // sorak penonton: derau yang naik lalu turun
@@ -959,6 +1069,7 @@ function synthGoal() {
   } catch { /* tanpa suara */ }
 }
 const ftSeen = new Map();
+const seenState = (m) => (m.status === "live" && m.correcting ? "corr" : m.status); // "corr" = dibuka untuk koreksi: gol dan FT-nya tidak dianimasikan di TV
 function tvFxShow(cls, html, ms) {
   document.querySelector(".goalfx")?.remove();
   const el = document.createElement("div");
@@ -982,19 +1093,19 @@ function tvCheckGoals(onTv) {
   const goals = state.events.filter((e) => e.type === "goal" || e.type === "own_goal");
   if (!goalsSeeded) {
     goals.forEach((x) => seenGoals.add(x.id));
-    state.matches.forEach((m) => ftSeen.set(m.id, m.status));
+    state.matches.forEach((m) => ftSeen.set(m.id, seenState(m)));
     goalsSeeded = true; return;
   }
   const fresh = goals.filter((x) => !seenGoals.has(x.id));
   fresh.forEach((x) => seenGoals.add(x.id));
   const justFt = state.matches.filter((m) => ftSeen.get(m.id) === "live" && m.status === "ft" && !m.wo);
-  state.matches.forEach((m) => ftSeen.set(m.id, m.status));
+  state.matches.forEach((m) => ftSeen.set(m.id, seenState(m)));
   if (!onTv) return;
   const recent = (e) => nowMs() - (e.ts ?? nowMs()) < 90000;
   if (justFt.length) { tvFtFx(justFt[0]); return; }
   if (fresh.length) {
     const e = fresh.sort(evSort).pop(), m = state.matchById[e.matchId];
-    if (m && m.status === "live" && recent(e)) tvGoalFx();
+    if (m && m.status === "live" && !m.correcting && recent(e)) tvGoalFx();
   }
 }
 

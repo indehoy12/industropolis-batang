@@ -571,22 +571,8 @@ export function scoreFromEvents(match, events) {
   return [a, b];
 }
 
-/** Ikon bola untuk gol: bola sepak klasik (pentagon tengah, garis jahitan, lima pentagon di tepi). cls "og" = merah (gol bunuh diri). Warna lewat CSS (.ball). */
-const BALL_INNER = (() => {
-  const P = (r, deg, cx = 12, cy = 12) => [cx + r * Math.cos((deg * Math.PI) / 180), cy + r * Math.sin((deg * Math.PI) / 180)];
-  const f = (p) => `${p[0].toFixed(2)} ${p[1].toFixed(2)}`;
-  const poly = (c, r, rot) => [0, 1, 2, 3, 4].map((k) => P(r, rot + 72 * k, c[0], c[1]).map((n) => n.toFixed(2)).join(",")).join(" ");
-  let seams = "", patches = "";
-  for (let k = 0; k < 5; k++) {
-    const a = -90 + 72 * k, s = P(7.2, a);
-    seams += `M${f(P(3.8, a))}L${f(s)}`;
-    for (const d of [-36, 36]) seams += `M${f(s)}L${f(P(8, a + d))}`;
-    patches += `<polygon class="bl" points="${poly(P(8, a + 36), 2.8, a + 36 + 180)}"/>`;
-  }
-  return `<path class="bs sm" d="${seams}"/><polygon class="bl" points="${poly([12, 12], 3.8, -90)}"/>${patches}`;
-})();
-export const ballSvg = (cls = "") =>
-  `<svg class="ball ${cls}" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle class="bs bf" cx="12" cy="12" r="10.8"/>${BALL_INNER}</svg>`;
+/** Ikon bola untuk gol: memakai file assets/ball.png (hitam, latar transparan) sebagai topeng CSS di atas dasar putih. cls "og" = merah (gol bunuh diri). Ganti gambarnya dengan menimpa assets/ball.png. */
+export const ballSvg = (cls = "") => `<span class="ball ${cls}" aria-hidden="true"><i></i></span>`;
 
 export const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

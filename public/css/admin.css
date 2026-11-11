@@ -617,3 +617,36 @@ body.admin { background: var(--paper); }
 .aev-l .aev-body { flex-direction: row-reverse; justify-content: flex-start; }
 .aev2.s-c, .aev.note.aev2 { display: flex; justify-content: center; gap: 10px; }
 .cardtot { display: inline-flex; align-items: center; gap: 6px; } .cardtot b { font-family: var(--font-d); font-size: 22px; margin-right: 8px; }
+
+/* ---------- Statistik tim, profil, riwayat pertemuan ---------- */
+.chiprow { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tscroll { overflow-x: auto; margin-top: 10px; }
+.stbl { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.stbl th, .stbl td { padding: 9px 8px; text-align: center; border-top: 1px solid var(--rule); white-space: nowrap; }
+.stbl th { font-size: 12px; font-weight: 600; color: var(--ink-2); border-top: 0; }
+.stbl .l { text-align: left; white-space: normal; }
+.stbl tfoot td { font-weight: 700; background: #f4f6fb; }
+.stbl .card { vertical-align: middle; }
+.lnk { color: var(--court-2); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.sgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; margin: 6px 0 10px; }
+.sgrid > div { background: #f4f6fb; border-radius: 12px; padding: 10px 6px; text-align: center; }
+.sgrid b { display: block; font-family: var(--font-d); font-size: 26px; line-height: 1.05; }
+.sgrid span { font-size: 12px; color: var(--ink-2); }
+.hrow { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; padding: 10px 4px; border-top: 1px solid var(--rule); }
+.hrow b { font-family: var(--font-d); font-size: 20px; white-space: nowrap; }
+.hv { font-weight: 600; min-width: 0; }
+.hv small { display: block; font-weight: 400; font-size: 12px; color: var(--ink-2); }
+.pes { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 3px; font-size: 13px; font-weight: 500; }
+.pe { display: inline-flex; align-items: center; gap: 4px; }
+.pe .ball { width: 16px; height: 16px; --b: #0d2038; }
+.rchip { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; font-weight: 700; font-size: 12px; color: #fff; background: #8a97a8; }
+.rchip.r-M { background: #1fa65a; } .rchip.r-K { background: #d6212f; }
+.ph-no { flex: none; width: 56px; height: 56px; border-radius: 50%; background: var(--court); color: #fff; display: grid; place-items: center; font-family: var(--font-d); font-weight: 700; font-size: 26px; }
+.podium2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.podr { background: #fff; border-radius: 12px; padding: 10px 12px; }
+.podr small { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); }
+
+
+/* ikon bola dari assets/ball.png */
+.ball { position: relative; border-radius: 50%; background: #fff; }
+.ball > i { position: absolute; inset: 0; background: var(--b); -webkit-mask: url("../assets/ball.png") center / contain no-repeat; mask: url("../assets/ball.png") center / contain no-repeat; }

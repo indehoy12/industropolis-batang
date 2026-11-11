@@ -5,6 +5,7 @@ import {
 } from "./firebase.js";
 import { state, startStore, onChange, isReady } from "./store.js";
 import { parseFile, buildPlan, buildOps, LIMITS } from "./importer.js";
+import { teamSummary, playerProfile, headToHead, championInfo } from "./profile.js";
 import { buildXlsx } from "./exporter.js";
 import {
   STAGES, esc, timeStr, dayShort, sortByKickoff, toLocalInput, fromLocalInput, elapsedSec, clockText,
@@ -214,10 +215,10 @@ function loginView() {
 const NAV = [
   { title: "Dashboard", items: [["dashboard", "Ringkasan"]] },
   { title: "Pertandingan", items: [["matches", "Semua pertandingan"], ["match-add", "Tambah pertandingan"]] },
-  { title: "Tim & Pemain", items: [["teams", "Daftar tim"], ["team-add", "Tambah tim"]] },
+  { title: "Tim & Pemain", items: [["teams", "Daftar tim"], ["team-stats", "Statistik tim"], ["team-add", "Tambah tim"]] },
   { title: "Pengaturan", items: [["set-announce", "Pengumuman"], ["set-timing", "Durasi pertandingan"], ["set-keeper", "Kiper terbaik"], ["set-export", "Ekspor ke Excel"], ["set-reset", "Hapus data"]] },
 ];
-const NAV_ALIAS = { match: "matches", team: "teams", settings: "set-announce" };
+const NAV_ALIAS = { match: "matches", team: "teams", player: "teams", settings: "set-announce" };
 const navGroup = (key) => NAV.find((g) => g.items.some(([k]) => k === key));
 const navKey = (r = route()) => { const k = NAV_ALIAS[r.name] || r.name; return navGroup(k) ? k : "dashboard"; };
 
@@ -245,7 +246,7 @@ function topBar() {
 function subNav() {
   const r = route();
   const mclock = `<div class="adm-clock-m">${rtClockHtml("adm")}</div>`;
-  if (r.name === "match" || r.name === "team") return mclock;
+  if (r.name === "match" || r.name === "team" || r.name === "player") return mclock;
   const key = navKey(r), g = navGroup(key);
   if (g.items.length < 2) return mclock;
   return mclock + `<nav class="subnav" aria-label="${esc(g.title)}">${g.items.map(([k, l]) => `<a class="${k === key ? "on" : ""}" href="#${k}">${l}</a>`).join("")}</nav>`;
@@ -279,7 +280,7 @@ function dashboardView() {
   const scCard = `<div class="panel"><h2 class="a">Top scorer</h2>${sc.length ? sc.map((p, i) => `<div class="dline"><span>${i + 1}. ${esc(p.name)} <small>${esc(tName(p.teamId))}</small></span><b>${p.goals}</b></div>`).join("") : `<p class="empty">Belum ada gol.</p>`}</div>`;
   const warn = sched.filter((m) => matchReadiness(m, state.players).length).length;
   const alertCard = warn ? `<div class="panel warnbox"><b>${warn} laga terjadwal</b> belum lengkap line up-nya. <a class="lnk" href="#matches">Buka daftar pertandingan</a></div>` : "";
-  return `<h1 class="page">Dashboard <a class="tvbtn" href="../#/tv" target="_blank" rel="noopener" title="Buka layar TV di tab baru">Layar TV ↗</a></h1>${alertCard}${suspCard()}${kpis}
+  return `<h1 class="page">Dashboard <a class="tvbtn" href="../#/tv" target="_blank" rel="noopener" title="Buka layar TV di tab baru">Layar TV ↗</a></h1>${alertCard}${champPanel()}${suspCard()}${kpis}
     <div class="dgrid">${liveCard}${nextCard}</div>${prog}
     <div class="dgrid">${lastCard}${scCard}</div>
     <div class="panel"><h2 class="a">Klasemen sementara</h2><div class="dstds">${stdCard || `<p class="empty">Belum ada grup.</p>`}</div></div>`;
@@ -677,6 +678,7 @@ function matchAdminView(id) {
   <div class="panel"><h2 class="a">Riwayat kejadian <small class="muted">(kiri: ${esc(sideName(m, "A"))}, kanan: ${esc(sideName(m, "B"))})</small> <span class="cntb">${evs.filter((e) => e.type !== "phase").length}</span></h2>${evList}${m.status === "live" ? `<p class="hint">Salah catat? Batalkan, skor ikut menyesuaikan.</p>` : ""}</div>
   <details class="panel fold" ${m.status === "scheduled" || miss.length ? "open" : ""}><summary>Line up ${miss.length ? '<span class="flag warn">perlu diisi</span>' : '<span class="flag ok">lengkap</span>'}</summary>${lineupEditor(m)}</details>
   ${woCard}
+  ${h2hPanel(m)}
   ${manageCard(m, allPlayers)}
   ${sheetView(m)}`;
 }
@@ -724,6 +726,69 @@ function teamsView() {
     ${byGroup[g].sort((a, b) => a.name.localeCompare(b.name, "id")).map((t) => `<a class="tcard" style="--i:${i++}" href="#team/${esc(t.id)}">${badge(t)}<span class="tc-t"><b>${esc(t.name)}</b><small>${playersOf(t.id).length} pemain</small></span></a>`).join("")}</section>`).join("")}</div>`;
 }
 
+// ---------- Statistik tim, profil, riwayat pertemuan, juara ----------
+const sbx = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
+const rchip = (r) => (r ? `<span class="rchip r-${r.res}">${r.res}</span>` : "");
+const cardIc = (n, c) => (n ? `<span class="pe"><i class="card ${c}"></i>${n}</span>` : "");
+const TS_SORTS = [["group", "Grup"], ["gf", "Gol"], ["assists", "Assist"], ["yellow", "Kuning"], ["red", "Merah"]];
+function teamStatsView() {
+  const key = ui.tsSort || "group";
+  const rows = state.teams.map((t) => ({ t, s: teamSummary(t.id, state) }));
+  rows.sort((a, b) => (key === "group" ? (a.t.group || "~").localeCompare(b.t.group || "~") : (b.s[key] ?? 0) - (a.s[key] ?? 0)) || a.t.name.localeCompare(b.t.name, "id"));
+  const sum = (k) => rows.reduce((n, r) => n + r.s[k], 0);
+  const head = `<h1 class="page">Statistik tim</h1>`;
+  if (!rows.length) return `${head}<div class="panel"><p class="empty">Belum ada tim.</p></div>`;
+  return `${head}<div class="panel"><div class="chiprow">${TS_SORTS.map(([k, l]) => `<button type="button" class="btn sm ${key === k ? "" : "ghost"}" data-act="ts-sort" data-key="${k}">${l}</button>`).join("")}</div>
+    <div class="tscroll"><table class="stbl"><thead><tr><th class="l">Tim</th><th>Grup</th><th>Main</th><th>M</th><th>S</th><th>K</th><th>Gol</th><th>KB</th><th>Assist</th><th><i class="card y"></i></th><th><i class="card r"></i></th></tr></thead>
+    <tbody>${rows.map(({ t, s: x }) => `<tr><td class="l"><a class="lnk" href="#team/${esc(t.id)}">${esc(t.name)}</a></td><td>${esc(t.group || "–")}</td><td>${x.played}</td><td>${x.w}</td><td>${x.d}</td><td>${x.l}</td><td><b>${x.gf}</b></td><td>${x.ga}</td><td>${x.assists}</td><td>${x.yellow}</td><td>${x.red}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td class="l">Total</td><td></td><td></td><td></td><td></td><td></td><td>${sum("gf")}</td><td></td><td>${sum("assists")}</td><td>${sum("yellow")}</td><td>${sum("red")}</td></tr></tfoot></table></div>
+    <p class="hint">Gol = gol memasukkan dan KB = kebobolan, dihitung dari laga selesai. Kartu dihitung dari semua kejadian. Semua angka ikut ke file Excel (Pengaturan → Ekspor ke Excel).</p></div>`;
+}
+function histRows(list, mode) {
+  return list.length ? list.map((h) => `<a class="hrow" href="#match/${esc(h.m.id)}"><span>${rchip(h.r)}</span>
+      <span class="hv">${mode === "team" ? (h.m.teamA === h.teamId ? "" : "@ ") : "vs "}${esc(h.opp ? tName(h.opp) : "Belum ditentukan")}<small>${h.m.stage === "group" || !h.m.stage ? "Grup " + esc(h.m.group || "?") : STAGES[h.m.stage]}${h.m.kickoff ? " · " + dayShort(h.m.kickoff) : ""}</small>${h.extra || ""}</span>
+      <b>${h.r ? `${h.r.my} – ${h.r.opp}${h.r.pen ? ` <small>(pen ${h.r.pen})</small>` : ""}` : h.m.status === "live" ? "LIVE" : timeStr(h.m.kickoff)}</b></a>`).join("") : `<p class="hint">Belum ada laga.</p>`;
+}
+function teamStatsPanel(t) {
+  const s = teamSummary(t.id, state), prog = teamProgress(t.id, state.teams, state.matches, state.events);
+  const played = (pid) => state.matches.filter((m) => m.status !== "scheduled" && (lineupIds(m, "A").includes(pid) || lineupIds(m, "B").includes(pid))).length;
+  return `<div class="panel"><h2 class="a">Statistik tim <span class="chip">${esc(prog.label)}</span></h2>
+    <div class="sgrid">${sbx(s.played, "Main")}${sbx(`${s.w}-${s.d}-${s.l}`, "M-S-K")}${sbx(s.gf, "Gol")}${sbx(s.ga, "Kebobolan")}${sbx(s.assists, "Assist")}${sbx(s.yellow, "Kuning")}${sbx(s.red, "Merah")}</div>
+    ${s.roster.length ? `<div class="tscroll"><table class="stbl"><thead><tr><th>#</th><th class="l">Pemain</th><th>Main</th><th>Gol</th><th>Assist</th><th><i class="card y"></i></th><th><i class="card r"></i></th></tr></thead><tbody>${s.roster.map((p) => `<tr><td>${p.number ?? ""}</td><td class="l"><a class="lnk" href="#player/${esc(p.id)}">${esc(p.name)}</a>${p.isGK ? ' <span class="badge-gk">GK</span>' : ""}</td><td>${played(p.id)}</td><td>${p.goals}</td><td>${p.assists}</td><td>${p.yellow}</td><td>${p.red}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    <h3 class="a" style="margin-top:14px">Riwayat laga</h3>${histRows(s.history.map((h) => ({ ...h, teamId: t.id })), "team")}</div>`;
+}
+function playerAdminView(id) {
+  const d = playerProfile(id, state);
+  if (!d || isOfficial(d.p)) return `<a class="back" href="#teams">← Daftar tim</a><div class="panel"><p class="empty">Pemain tidak ditemukan.</p></div>`;
+  const { p, stat, rows, keeper } = d, t = state.teamById[p.teamId];
+  const boxes = [sbx(d.played, "Main"), sbx(stat.goals, "Gol"), sbx(stat.assists, "Assist"), sbx(stat.yellow, "Kuning"), sbx(stat.red, "Merah")];
+  if (stat.ownGoals) boxes.push(sbx(stat.ownGoals, "Gol bunuh diri"));
+  if (keeper && keeper.played) boxes.push(sbx(keeper.cleanSheets, "Clean sheet"), sbx(keeper.conceded, "Kebobolan"));
+  const hist = histRows([...rows].reverse().map((rw) => ({ m: rw.m, opp: rw.opp, r: rw.r, extra: `<span class="pes">${[
+    rw.goals.length ? `<span class="pe">${ballSvg()}${rw.goals.map((e) => eventMinute(e)).join(", ")}${rw.goals.some((e) => e.pen) ? " (P)" : ""}</span>` : "",
+    rw.og.length ? `<span class="pe">${ballSvg("og")}${rw.og.map((e) => eventMinute(e)).join(", ")} (OG)</span>` : "",
+    rw.assists.length ? `<span class="pe">Assist ${rw.assists.length}</span>` : "", cardIc(rw.yellow.length, "y"), cardIc(rw.red.length, "r"),
+  ].join("")}</span>` })), "player");
+  return `<a class="back" href="${t ? "#team/" + esc(t.id) : "#teams"}">← ${esc(t?.name || "Daftar tim")}</a>
+    <div class="team-hero"><span class="ph-no">${p.number ?? ""}</span><div><h1 class="page">${esc(p.name)}</h1><div class="meta"><span>${esc(t?.name || "")}</span>${p.isGK ? '<span class="badge-gk">GK</span>' : ""}${p.isCaptain ? '<span class="badge-gk badge-cap">C</span>' : ""}</div></div></div>
+    <div class="panel"><div class="sgrid">${boxes.join("")}</div></div><div class="panel"><h2 class="a">Riwayat laga</h2>${hist}</div>`;
+}
+function h2hPanel(m) {
+  const h = headToHead(m, state.matches);
+  if (!h) return "";
+  const A = esc(sideName(m, "A")), B = esc(sideName(m, "B"));
+  return `<div class="panel"><h2 class="a">Riwayat pertemuan</h2>${h.list.length
+    ? `<div class="sgrid">${sbx(h.w, A + " menang")}${sbx(h.d, "Seri")}${sbx(h.l, B + " menang")}</div><p class="hint">Total gol: ${A} ${h.gf} – ${h.ga} ${B}</p>${h.list.map((x) => `<a class="arow" href="#match/${esc(x.id)}"><div class="when">${x.kickoff ? dayShort(x.kickoff) : "–"}</div><div class="vs"><span>${esc(sideName(x, "A"))} <b>${x.scoreA ?? 0} – ${x.scoreB ?? 0}</b> ${esc(sideName(x, "B"))}</span><small>${x.stage === "group" || !x.stage ? "Grup " + esc(x.group || "?") : STAGES[x.stage]}</small></div></a>`).join("")}`
+    : `<p class="hint">Belum ada pertemuan sebelumnya antara kedua tim di turnamen ini.</p>`}</div>`;
+}
+function champPanel() {
+  const c = championInfo(state.matches);
+  if (!c) return "";
+  const row = (l, id) => (id ? `<div class="podr"><small>${l}</small><a class="lnk" href="#team/${esc(id)}">${esc(tName(id))}</a></div>` : "");
+  return `<div class="panel okbox"><h2 class="a">Turnamen selesai</h2><div class="podium2">${row("Juara", c.champion)}${row("Runner-up", c.runnerUp)}${row("Juara 3", c.third)}${row("Peringkat 4", c.fourth)}</div>
+    <p class="hint">Halaman juara dan arsip hasil sudah tampil di website (menu Info → Juara &amp; arsip).</p></div>`;
+}
+
 // Satu tim: info, logo, pemain, official.
 function teamView(id) {
   const t = state.teamById[id];
@@ -732,6 +797,7 @@ function teamView(id) {
   return `<a class="back" href="#teams">← Daftar tim</a>
     <div class="team-hero">${badge(t, "lg")}<div><h1 class="page">${esc(t.name)}</h1>
       <div class="meta"><span class="chip">${t.group ? "Grup " + esc(t.group) : "Tanpa grup"}</span><span>${roster.length} pemain · ${offs.length} official</span></div></div></div>
+    ${teamStatsPanel(t)}
     <div class="panel"><h2 class="a">Info tim</h2>
       <form data-form="team" data-id="${esc(t.id)}" class="grid3" style="align-items:end"><div style="grid-column:span 2"><label>Nama tim</label><input type="text" name="name" value="${esc(t.name)}" required></div>
         <div><label>Grup</label><input type="text" name="group" value="${esc(t.group || "")}" maxlength="2"></div>
@@ -831,7 +897,7 @@ function keeperView() {
 // Hapus data: bersihkan semua pertandingan atau semua tim sekaligus
 function exportView() {
   return `<h1 class="page">Ekspor ke Excel</h1><div class="panel"><h2 class="a">Unduh data turnamen</h2>
-    <p class="hint">Satu file .xlsx berisi enam lembar: Klasemen, Jadwal &amp; hasil, Kejadian (gol dan kartu), Top scorer, Kartu &amp; skorsing, dan Kiper. Data diambil dari kondisi terbaru di layar ini, jadi cocok untuk arsip harian atau laporan ke panitia.</p>
+    <p class="hint">Satu file .xlsx berisi delapan lembar: Klasemen, Jadwal &amp; hasil, Kejadian (gol dan kartu), Top scorer, Kartu &amp; skorsing, Kiper, Statistik tim, dan Statistik pemain. Data diambil dari kondisi terbaru di layar ini, jadi cocok untuk arsip harian atau laporan ke panitia.</p>
     <div class="btns"><button class="btn orange big" data-act="export-xlsx">Unduh Excel</button></div></div>`;
 }
 function exportSheets() {
@@ -859,7 +925,11 @@ function exportSheets() {
   });
   const kiper = [["Kiper", "Tim", "Main", "Clean sheet", "Kebobolan", "Rata-rata kebobolan"]];
   computeKeeperStats(state.players, state.matches, state.teams, ev).forEach((g) => kiper.push([g.name, tName(g.teamId), g.played, g.cleanSheets, g.conceded, Number(g.avg.toFixed(2))]));
-  return [{ name: "Klasemen", rows: klasemen }, { name: "Jadwal & hasil", rows: jadwal }, { name: "Kejadian", rows: kejadian }, { name: "Top scorer", rows: scorer }, { name: "Kartu & skorsing", rows: kartu }, { name: "Kiper", rows: kiper }];
+  const tstat = [["Tim", "Grup", "Main", "Menang", "Seri", "Kalah", "Gol memasukkan", "Gol kemasukan", "Assist", "Kuning", "Merah"]];
+  [...state.teams].sort((a, b) => (a.group || "").localeCompare(b.group || "") || a.name.localeCompare(b.name, "id")).forEach((t) => { const x = teamSummary(t.id, state); tstat.push([t.name, t.group || "", x.played, x.w, x.d, x.l, x.gf, x.ga, x.assists, x.yellow, x.red]); });
+  const pstat = [["Pemain", "Tim", "No", "Gol", "Assist", "Kuning", "Merah"]];
+  stats.filter((p) => p.role !== "official").sort((a, b) => tName(a.teamId).localeCompare(tName(b.teamId), "id") || (a.number ?? 999) - (b.number ?? 999)).forEach((p) => pstat.push([p.name, tName(p.teamId), p.number ?? "", p.goals, p.assists, p.yellow, p.red]));
+  return [{ name: "Klasemen", rows: klasemen }, { name: "Jadwal & hasil", rows: jadwal }, { name: "Kejadian", rows: kejadian }, { name: "Top scorer", rows: scorer }, { name: "Kartu & skorsing", rows: kartu }, { name: "Kiper", rows: kiper }, { name: "Statistik tim", rows: tstat }, { name: "Statistik pemain", rows: pstat }];
 }
 function resetView() {
   const nM = state.matches.length, nE = state.events.length, nT = state.teams.length, nP = state.players.length;
@@ -877,7 +947,7 @@ function resetView() {
 let pending = false;
 let lastBar = "", lastKey = "", enterTimer;
 // Skeleton shimmer: saat data belum siap dan sekilas tiap pindah halaman
-const SKEL_KIND = { matches: "list", "match-add": "form", teams: "grid", team: "form", "team-add": "form", settings: "form", "set-announce": "form", "set-timing": "form", "set-keeper": "cards", "set-reset": "form", match: "pos" };
+const SKEL_KIND = { matches: "list", "match-add": "form", teams: "grid", "team-stats": "list", player: "list", team: "form", "team-add": "form", settings: "form", "set-announce": "form", "set-timing": "form", "set-keeper": "cards", "set-reset": "form", match: "pos" };
 let skelOn = false, skelTimer;
 function startSkeleton() { skelOn = true; clearTimeout(skelTimer); skelTimer = setTimeout(() => { skelOn = false; render(); }, 350); }
 function showSkel(r) {
@@ -912,6 +982,8 @@ function render() {
   else if (r.name === "team") h = teamView(r.id);
   else if (r.name === "team-add") h = teamAddView();
   else if (r.name === "teams") h = teamsView();
+  else if (r.name === "team-stats") h = teamStatsView();
+  else if (r.name === "player") h = playerAdminView(r.id);
   else if (r.name === "set-timing") h = timingView();
   else if (r.name === "set-keeper") h = keeperView();
   else if (r.name === "set-export") h = exportView();
@@ -1168,6 +1240,7 @@ const actions = {
     await putKeeper(m, side, back, null, `Kiper kembali (${sideName(m, side)}): ${pName(back)}`);
     toast(`${pName(back)} kembali jaga gawang`);
   },
+  "ts-sort"(_, el) { ui.tsSort = el.dataset.key; },
   // --- POS ---
   side(_, el) { ui.side = el.dataset.side; },
   tab(_, el) { ui.tabs[el.dataset.group] = el.dataset.tab; },
