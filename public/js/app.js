@@ -619,8 +619,8 @@ function matchView(r) {
 
 // ---------- Banner geser (otomatis + bisa digeser) ----------
 /** Video tanpa suara, berulang. Pengunjung yang meminta gerak dikurangi hanya melihat gambar pembuka. */
-function mediaVideo(b, controls) {
-  const play = controls || !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function mediaVideo(b, controls, forcePlay = false) {
+  const play = forcePlay || controls || !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   return `<video class="bn-video" src="${b.video}" poster="${b.src}" width="1920" height="912" muted loop playsinline preload="${play ? "auto" : "none"}" ${play ? "autoplay" : ""} ${controls ? "controls" : ""} aria-label="${esc(b.alt)}"></video>`;
 }
 const BANNERS = [
@@ -714,7 +714,7 @@ function openLightbox(i) {
   lb.setAttribute("role", "dialog");
   lb.setAttribute("aria-modal", "true");
   lb.setAttribute("aria-label", b.title);
-  lb.innerHTML = `<button type="button" class="lb-x">Tutup ✕</button><div class="lb-scroll">${b.video ? mediaVideo(b, true) : `<img src="${b.src}" alt="${esc(b.alt)}">`}</div>`;
+  lb.innerHTML = `<button type="button" class="lb-x">Tutup ✕</button><div class="lb-scroll">${b.video ? mediaVideo(b, false, true) : `<img src="${b.src}" alt="${esc(b.alt)}">`}</div>`;
   document.body.appendChild(lb);
   document.body.classList.add("lb-open");
   const close = () => {
