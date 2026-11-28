@@ -156,12 +156,12 @@ const sponsors = `<div class="sponsors">
 // "gw" = landscape lebar, "gh" = landscape setengah baris, "gn" = potret (sempit). Satu kotak hanya berisi foto dengan arah yang sama.
 // Berhenti sebentar saat kursor di atasnya atau setelah digeser; klik foto untuk memperbesar (foto utuh).
 const GALLERY = [
-  ["gw", "Suasana laga di lapangan", "Pemain bertanding di lapangan futsal Industropolis Batang", ["lapangan-3", "lapangan-4", "lapangan-5", "lapangan-6"]],
-  ["gn", "Momen laga", "Momen pemain di lapangan futsal Industropolis Batang", ["lapangan-1", "lapangan-2", "sportivitas-4", "lapangan-7", "sportivitas-10", "lapangan-8"]],
-  ["gh", "Sportivitas", "Salaman dan pengundian koin bersama wasit sebelum pertandingan", ["sportivitas-1", "sportivitas-2", "sportivitas-3", "sportivitas-5", "sportivitas-6", "sportivitas-7", "sportivitas-8", "sportivitas-9"]],
-  ["gh", "Satu tim", "Foto bersama tim peserta di Sagara Futsal Arena", ["tim-1", "tim-2", "tim-3", "tim-4", "tim-5", "tim-6", "tim-7", "tim-8"]],
-  ["gn", "Sagara Futsal Arena", "Lapangan Sagara Futsal Arena di KEK Industropolis Batang", ["sagara-1", "sagara-3", "sagara-4", "sagara-6", "sagara-7"]],
-  ["gw", "Sagara Futsal Arena", "Lapangan Sagara Futsal Arena di KEK Industropolis Batang", ["sagara-2", "sagara-5"]],
+  ["gw", "Suasana laga di lapangan", "Pemain bertanding di lapangan futsal Industropolis Batang", ["lapangan-1", "lapangan-2", "lapangan-3", "lapangan-4", "lapangan-5", "lapangan-6", "lapangan-7", "lapangan-8", "lapangan-9", "lapangan-10", "lapangan-11", "lapangan-12", "lapangan-13", "lapangan-14", "lapangan-15", "lapangan-16", "lapangan-17", "lapangan-18", "lapangan-19", "lapangan-20", "lapangan-21", "lapangan-22", "lapangan-23", "lapangan-24", "lapangan-25", "lapangan-26", "lapangan-27", "lapangan-28"]],
+  ["gn", "Para pemain", "Pemain futsal Industropolis Batang Futsal League di lapangan", ["potret-1", "potret-2", "potret-3", "potret-4", "potret-5", "potret-6", "potret-7", "potret-8"]],
+  ["gh", "Sportivitas", "Salaman dan pengundian koin bersama wasit sebelum pertandingan", ["sportivitas-1", "sportivitas-2", "sportivitas-3"]],
+  ["gh", "Satu tim", "Foto bersama tim peserta di Sagara Futsal Arena", ["tim-1", "tim-2", "tim-3", "tim-4", "tim-5", "tim-6", "tim-7", "tim-8", "tim-9", "tim-10", "tim-11", "tim-12", "tim-13", "tim-14"]],
+  ["gh", "Sagara Futsal Arena", "Pertandingan di Sagara Futsal Arena, KEK Industropolis Batang", ["sagara-1", "sagara-2", "sagara-3", "sagara-4", "sagara-5", "sagara-6", "sagara-7", "sagara-8", "sagara-9", "sagara-10", "sagara-11", "sagara-12", "sagara-13", "sagara-14"]],
+  ["gh", "Momen laga", "Momen pemain di lapangan futsal Industropolis Batang", ["duel-1", "duel-2", "duel-3", "duel-4", "duel-5", "duel-6", "duel-7", "duel-8", "duel-9", "duel-10", "duel-11", "duel-12", "duel-13"]],
 ];
 const gallery = `<div class="gallery">${GALLERY.map(([kind, cap, alt, photos], gi) => `<figure class="${kind}" data-g="${gi}" aria-label="${cap}">${photos.map((f, i) => `<div class="slide${i === 0 ? " on" : ""}"><img class="fg" src="assets/foto/${f}.jpg" alt="${alt}" ${i <= 1 ? "" : 'loading="lazy" '}decoding="async"></div>`).join("")}<figcaption>${cap}</figcaption><button type="button" class="gzoom" aria-label="Perbesar foto ${cap}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button></figure>`).join("")}</div>`;
 const GALLERY_EVERY = 5; // detik per foto; tiap kotak mulai bergeser 1 detik supaya tidak berganti bersamaan

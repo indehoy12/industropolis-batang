@@ -2712,7 +2712,7 @@ table.std tr.out td.rank::before {
 
 /* ---------- Galeri foto beranda ----------
    Bentuk kotak mengikuti arah foto supaya tidak ada yang terpotong: landscape (3:2) dan potret (3:4 di HP, tinggi baris yang sama di layar lebar).
-   Layar lebar: kisi 26 kolom, tiga baris: [lebar 18 + potret 8], [setengah 13 + setengah 13], [potret 8 + lebar 18]; tinggi tiap baris ditentukan kotak landscape,
+   Layar lebar: kisi 26 kolom, tiga baris: [lebar 18 + potret 8], [setengah 13 + setengah 13], [setengah 13 + setengah 13]; tinggi tiap baris ditentukan kotak landscape,
    kotak potret mengikuti (rasio sekitar 2:3), jadi semua rapi sejajar. HP: 1 kolom. */
 .gallery {
   display: grid;
